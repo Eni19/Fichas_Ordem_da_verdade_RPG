@@ -3,7 +3,7 @@ import AttributeHexagon from '@/components/AttributeHexagon';
 import SkillsList from '@/components/SkillsList';
 import DiceRoller from '@/components/DiceRoller';
 import VitalStats from '@/components/VitalStats';
-import Expertises from '@/components/Expertises';
+import Pericias from '@/components/Pericias';
 import DamageThresholds from '@/components/DamageThresholds';
 import HopeCounter from '@/components/HopeCounter';
 import ArmorSelector from '@/components/ArmorSelector';
@@ -29,10 +29,11 @@ interface Skill {
   cost: number;
 }
 
-interface Expertise {
+interface Pericia {
   id: string;
   name: string;
-  modifier: number;
+  training: 'treinado' | 'veterano' | 'expert';
+  attribute: keyof CharacterData['attributes'];
 }
 
 interface DamageThreshold {
@@ -79,7 +80,7 @@ interface CharacterData {
     conhecimento: number;
   };
   skills: Skill[];
-  expertises: Expertise[];
+  pericias: Pericia[];
   hp: { current: number; max: number };
   sanity: { current: number; max: number };
   damageThresholds: DamageThreshold;
@@ -93,7 +94,47 @@ interface CharacterData {
   paranormalPowers: ParanormalPower[];
 }
 
+interface SkillRollRequest {
+  id: number;
+  periciaName: string;
+  attributeLabel: string;
+  trainingLabel: string;
+  attributeDie: number;
+  trainingDie: number;
+}
+
+const ATTRIBUTE_DIE_MAP: Record<number, number> = {
+  [-1]: 4,
+  0: 6,
+  1: 8,
+  2: 10,
+  3: 12,
+  4: 12,
+};
+
+const ATTRIBUTE_LABELS: Record<keyof CharacterData['attributes'], string> = {
+  agilidade: 'Agilidade',
+  força: 'Forca',
+  finesse: 'Finesse',
+  instinto: 'Instinto',
+  presença: 'Presenca',
+  conhecimento: 'Conhecimento',
+};
+
+const TRAINING_DIE_MAP: Record<Pericia['training'], number> = {
+  treinado: 6,
+  veterano: 8,
+  expert: 10,
+};
+
+const TRAINING_LABELS: Record<Pericia['training'], string> = {
+  treinado: 'Treinado',
+  veterano: 'Veterano',
+  expert: 'Expert',
+};
+
 export default function CharacterSheet() {
+  const [pendingRoll, setPendingRoll] = useState<SkillRollRequest | null>(null);
   const [character, setCharacter] = useState<CharacterData>({
     name: 'Seu Personagem',
     attributes: {
@@ -105,9 +146,9 @@ export default function CharacterSheet() {
       conhecimento: 0,
     },
     skills: [],
-    expertises: [
-      { id: '1', name: 'Expertise 1', modifier: 2 },
-      { id: '2', name: 'Expertise 2', modifier: 2 },
+    pericias: [
+      { id: '1', name: 'Luta', training: 'treinado', attribute: 'força' },
+      { id: '2', name: 'Pontaria', training: 'veterano', attribute: 'agilidade' },
     ],
     hp: { current: 20, max: 20 },
     sanity: { current: 10, max: 10 },
@@ -173,28 +214,46 @@ export default function CharacterSheet() {
     });
   };
 
-  const handleAddExpertise = () => {
-    const newExpertise: Expertise = {
+  const handleAddPericia = () => {
+    const newPericia: Pericia = {
       id: Date.now().toString(),
-      name: 'Nova Expertise',
-      modifier: 2,
+      name: 'Nova Pericia',
+      training: 'treinado',
+      attribute: 'agilidade',
     };
-    setCharacter({ ...character, expertises: [...character.expertises, newExpertise] });
+    setCharacter({ ...character, pericias: [...character.pericias, newPericia] });
   };
 
-  const handleUpdateExpertise = (id: string, field: keyof Expertise, value: string | number) => {
+  const handleUpdatePericia = (id: string, field: keyof Pericia, value: string) => {
     setCharacter({
       ...character,
-      expertises: character.expertises.map((expertise) =>
-        expertise.id === id ? { ...expertise, [field]: value } : expertise
+      pericias: character.pericias.map((pericia) =>
+        pericia.id === id ? { ...pericia, [field]: value } : pericia
       ),
     });
   };
 
-  const handleDeleteExpertise = (id: string) => {
+  const handleDeletePericia = (id: string) => {
     setCharacter({
       ...character,
-      expertises: character.expertises.filter((expertise) => expertise.id !== id),
+      pericias: character.pericias.filter((pericia) => pericia.id !== id),
+    });
+  };
+
+  const handleRollPericia = (id: string) => {
+    const pericia = character.pericias.find((p) => p.id === id);
+    if (!pericia) return;
+
+    const attributeValue = character.attributes[pericia.attribute];
+    const normalizedAttribute = Math.max(-1, Math.min(4, attributeValue));
+
+    setPendingRoll({
+      id: Date.now(),
+      periciaName: pericia.name || 'Pericia sem nome',
+      attributeLabel: ATTRIBUTE_LABELS[pericia.attribute],
+      trainingLabel: TRAINING_LABELS[pericia.training],
+      attributeDie: ATTRIBUTE_DIE_MAP[normalizedAttribute],
+      trainingDie: TRAINING_DIE_MAP[pericia.training],
     });
   };
 
@@ -299,6 +358,27 @@ export default function CharacterSheet() {
     });
   };
 
+  const handleLoadCharacter = (data: Partial<CharacterData> & { expertises?: Array<{ id: string; name: string }> }) => {
+    const loadedPericias: Pericia[] = Array.isArray(data.pericias)
+      ? data.pericias
+      : (data.expertises || []).map((expertise) => ({
+          id: expertise.id,
+          name: expertise.name,
+          training: 'treinado' as const,
+          attribute: 'agilidade' as const,
+        }));
+
+    setCharacter((prev) => ({
+      ...prev,
+      ...data,
+      attributes: {
+        ...prev.attributes,
+        ...data.attributes,
+      },
+      pericias: loadedPericias.length > 0 ? loadedPericias : prev.pericias,
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-black text-white font-mono overflow-hidden flex flex-col">
       {/* Header */}
@@ -315,7 +395,7 @@ export default function CharacterSheet() {
         {/* Save/Load Buttons */}
         <SaveLoad
           characterData={character}
-          onLoadCharacter={(data) => setCharacter({ ...character, ...data })}
+          onLoadCharacter={handleLoadCharacter}
         />
 
         {/* Thresholds in a single row */}
@@ -370,7 +450,7 @@ export default function CharacterSheet() {
           </div>
         </div>
 
-        {/* Center Column - Skills & Expertises */}
+        {/* Center Column - Skills & Pericias */}
         <div className="flex-1 flex flex-col min-w-0 gap-2 md:gap-4">
           {/* Skills Section - Fixed Height with Scroll */}
           <div className="h-40 md:h-64 flex flex-col min-h-0 flex-shrink-0">
@@ -390,20 +470,21 @@ export default function CharacterSheet() {
             />
           </div>
 
-          {/* Expertises Section */}
+          {/* Pericias Section */}
           <div className="flex-1 flex flex-col min-h-0">
-            <Expertises
-              expertises={character.expertises}
-              onAddExpertise={handleAddExpertise}
-              onUpdateExpertise={handleUpdateExpertise}
-              onDeleteExpertise={handleDeleteExpertise}
+            <Pericias
+              pericias={character.pericias}
+              onAddPericia={handleAddPericia}
+              onUpdatePericia={handleUpdatePericia}
+              onDeletePericia={handleDeletePericia}
+              onRollPericia={handleRollPericia}
             />
           </div>
         </div>
 
         {/* Right Column - Dice */}
         <div className="flex-shrink-0 w-full md:w-56 pr-0 md:pr-4">
-          <DiceRoller />
+          <DiceRoller rollRequest={pendingRoll} />
         </div>
       </div>
 
