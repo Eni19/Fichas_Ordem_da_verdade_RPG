@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 type TrainingLevel = 'treinado' | 'veterano' | 'expert';
@@ -8,7 +9,6 @@ interface Pericia {
   id: string;
   name: string;
   training: TrainingLevel;
-  attribute: AttributeKey;
 }
 
 interface PericiasProps {
@@ -16,7 +16,7 @@ interface PericiasProps {
   onAddPericia: () => void;
   onUpdatePericia: (id: string, field: keyof Pericia, value: string) => void;
   onDeletePericia: (id: string) => void;
-  onRollPericia: (id: string) => void;
+  onRollPericia: (id: string, attribute: AttributeKey) => void;
 }
 
 const ATTRIBUTE_OPTIONS: Array<{ value: AttributeKey; label: string }> = [
@@ -41,13 +41,15 @@ export default function Pericias({
   onDeletePericia,
   onRollPericia,
 }: PericiasProps) {
+  const [pendingRoll, setPendingRoll] = useState<{ periciaId: string; attribute: AttributeKey } | null>(null);
+
   return (
     <div className="card-occult flex flex-col gap-2 h-full min-h-0">
       <div className="flex items-center justify-between flex-shrink-0">
-        <h3 className="font-display text-sm text-primary uppercase">Pericias</h3>
+        <h3 className="font-display text-base text-primary uppercase">Pericias</h3>
         <button
           onClick={onAddPericia}
-          className="btn-occult text-xs px-2 py-1 flex items-center gap-1 flex-shrink-0"
+          className="btn-occult text-sm px-2 py-1 flex items-center gap-1 flex-shrink-0"
         >
           <Plus size={12} />
           ADD
@@ -63,28 +65,19 @@ export default function Pericias({
           ) : (
             pericias.map((pericia) => (
               <div key={pericia.id} className="bg-black border border-primary p-2 space-y-2 flex-shrink-0">
-                <div className="flex items-start justify-between gap-1">
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={pericia.name}
                     onChange={(e) => onUpdatePericia(pericia.id, 'name', e.target.value)}
-                    className="flex-1 min-w-0 bg-transparent border-b border-primary text-primary font-display text-xs focus:outline-none focus:ring-0 uppercase"
+                    className="flex-1 min-w-0 bg-transparent border border-primary text-primary font-display text-sm focus:outline-none focus:ring-0 uppercase px-2 py-1 h-8"
                     placeholder="Nome"
                   />
-                  <button
-                    onClick={() => onDeletePericia(pericia.id)}
-                    className="text-primary hover:text-secondary transition-colors p-0 flex-shrink-0"
-                    aria-label="Remover pericia"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <select
                     value={pericia.training}
                     onChange={(e) => onUpdatePericia(pericia.id, 'training', e.target.value)}
-                    className="bg-input border border-primary text-primary text-xs p-1 focus:outline-none"
+                    className="w-36 bg-input border border-primary text-primary text-sm p-1 focus:outline-none h-8"
                   >
                     {TRAINING_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value} className="bg-black text-primary">
@@ -93,25 +86,46 @@ export default function Pericias({
                     ))}
                   </select>
 
-                  <select
-                    value={pericia.attribute}
-                    onChange={(e) => onUpdatePericia(pericia.id, 'attribute', e.target.value)}
-                    className="bg-input border border-primary text-primary text-xs p-1 focus:outline-none"
+                  <button
+                    onClick={() =>
+                      setPendingRoll((prev) =>
+                        prev?.periciaId === pericia.id
+                          ? null
+                          : { periciaId: pericia.id, attribute: 'agilidade' }
+                      )
+                    }
+                    className="w-20 h-8 bg-primary text-black font-bold uppercase text-sm border-2 border-primary hover:bg-black hover:text-primary transition-all"
                   >
-                    {ATTRIBUTE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value} className="bg-black text-primary">
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    Rolar
+                  </button>
+
+                  <button
+                    onClick={() => onDeletePericia(pericia.id)}
+                    className="text-primary hover:text-secondary transition-colors p-0 flex-shrink-0 h-8 w-8 border border-primary flex items-center justify-center"
+                    aria-label="Remover pericia"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => onRollPericia(pericia.id)}
-                  className="w-full py-1 bg-primary text-black font-bold uppercase text-xs border-2 border-primary hover:bg-black hover:text-primary transition-all"
-                >
-                  Rolar
-                </button>
+                {pendingRoll?.periciaId === pericia.id && (
+                  <div className="border border-primary/60 bg-black/70 p-2 space-y-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {ATTRIBUTE_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => {
+                            onRollPericia(pericia.id, option.value);
+                            setPendingRoll(null);
+                          }}
+                          className="h-8 px-2 bg-black text-primary border border-primary text-sm uppercase font-bold hover:bg-primary hover:text-black transition-all"
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}

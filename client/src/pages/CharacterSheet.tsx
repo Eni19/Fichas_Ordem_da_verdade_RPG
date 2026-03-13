@@ -33,7 +33,6 @@ interface Pericia {
   id: string;
   name: string;
   training: 'treinado' | 'veterano' | 'expert';
-  attribute: keyof CharacterData['attributes'];
 }
 
 interface DamageThreshold {
@@ -147,8 +146,8 @@ export default function CharacterSheet() {
     },
     skills: [],
     pericias: [
-      { id: '1', name: 'Luta', training: 'treinado', attribute: 'força' },
-      { id: '2', name: 'Pontaria', training: 'veterano', attribute: 'agilidade' },
+      { id: '1', name: 'Luta', training: 'treinado' },
+      { id: '2', name: 'Pontaria', training: 'veterano' },
     ],
     hp: { current: 20, max: 20 },
     sanity: { current: 10, max: 10 },
@@ -219,7 +218,6 @@ export default function CharacterSheet() {
       id: Date.now().toString(),
       name: 'Nova Pericia',
       training: 'treinado',
-      attribute: 'agilidade',
     };
     setCharacter({ ...character, pericias: [...character.pericias, newPericia] });
   };
@@ -240,17 +238,17 @@ export default function CharacterSheet() {
     });
   };
 
-  const handleRollPericia = (id: string) => {
+  const handleRollPericia = (id: string, selectedAttribute: keyof CharacterData['attributes']) => {
     const pericia = character.pericias.find((p) => p.id === id);
     if (!pericia) return;
 
-    const attributeValue = character.attributes[pericia.attribute];
+    const attributeValue = character.attributes[selectedAttribute];
     const normalizedAttribute = Math.max(-1, Math.min(4, attributeValue));
 
     setPendingRoll({
       id: Date.now(),
       periciaName: pericia.name || 'Pericia sem nome',
-      attributeLabel: ATTRIBUTE_LABELS[pericia.attribute],
+      attributeLabel: ATTRIBUTE_LABELS[selectedAttribute],
       trainingLabel: TRAINING_LABELS[pericia.training],
       attributeDie: ATTRIBUTE_DIE_MAP[normalizedAttribute],
       trainingDie: TRAINING_DIE_MAP[pericia.training],
@@ -360,12 +358,15 @@ export default function CharacterSheet() {
 
   const handleLoadCharacter = (data: Partial<CharacterData> & { expertises?: Array<{ id: string; name: string }> }) => {
     const loadedPericias: Pericia[] = Array.isArray(data.pericias)
-      ? data.pericias
+      ? data.pericias.map((pericia) => ({
+          id: pericia.id,
+          name: pericia.name,
+          training: pericia.training ?? 'treinado',
+        }))
       : (data.expertises || []).map((expertise) => ({
           id: expertise.id,
           name: expertise.name,
           training: 'treinado' as const,
-          attribute: 'agilidade' as const,
         }));
 
     setCharacter((prev) => ({
@@ -398,14 +399,6 @@ export default function CharacterSheet() {
           onLoadCharacter={handleLoadCharacter}
         />
 
-        {/* Thresholds in a single row */}
-        <div className="flex gap-2 overflow-x-auto">
-          <DamageThresholds
-            thresholds={character.damageThresholds}
-            onChange={handleDamageThresholdChange}
-          />
-        </div>
-
         {/* Vitals + Hope + Armor Row - Stack on mobile */}
         <div className="flex flex-col md:flex-row gap-2 md:gap-4">
           <div className="flex-1 min-w-0">
@@ -416,11 +409,19 @@ export default function CharacterSheet() {
               onSanityChange={(field, value) => handleVitalChange('sanity', field, value)}
             />
           </div>
-          <div className="w-full md:w-56 flex-shrink-0">
-            <HopeCounter
-              current={character.hope}
-              onChange={handleHopeChange}
-            />
+          <div className="w-full md:w-56 flex-shrink-0 space-y-2">
+            <div>
+              <HopeCounter
+                current={character.hope}
+                onChange={handleHopeChange}
+              />
+            </div>
+            <div>
+              <DamageThresholds
+                thresholds={character.damageThresholds}
+                onChange={handleDamageThresholdChange}
+              />
+            </div>
           </div>
           <div className="w-full md:w-64 flex-shrink-0">
             <ArmorSelector
@@ -452,8 +453,19 @@ export default function CharacterSheet() {
 
         {/* Center Column - Skills & Pericias */}
         <div className="flex-1 flex flex-col min-w-0 gap-2 md:gap-4">
+          {/* Pericias Section */}
+          <div className="h-80 md:h-[32rem] flex flex-col min-h-0 flex-shrink-0">
+            <Pericias
+              pericias={character.pericias}
+              onAddPericia={handleAddPericia}
+              onUpdatePericia={handleUpdatePericia}
+              onDeletePericia={handleDeletePericia}
+              onRollPericia={handleRollPericia}
+            />
+          </div>
+
           {/* Skills Section - Fixed Height with Scroll */}
-          <div className="h-40 md:h-64 flex flex-col min-h-0 flex-shrink-0">
+          <div className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-2 flex-shrink-0">
               <h2 className="font-display text-sm md:text-lg text-primary">HABILIDADES</h2>
               <button
@@ -467,17 +479,6 @@ export default function CharacterSheet() {
               skills={character.skills}
               onUpdateSkill={handleUpdateSkill}
               onDeleteSkill={handleDeleteSkill}
-            />
-          </div>
-
-          {/* Pericias Section */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <Pericias
-              pericias={character.pericias}
-              onAddPericia={handleAddPericia}
-              onUpdatePericia={handleUpdatePericia}
-              onDeletePericia={handleDeletePericia}
-              onRollPericia={handleRollPericia}
             />
           </div>
         </div>

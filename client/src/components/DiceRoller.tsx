@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Dice6 } from 'lucide-react';
 
 interface DiceResult {
   formula: string;
@@ -26,9 +27,58 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
   const [advantageEnabled, setAdvantageEnabled] = useState(false);
   const [disadvantageEnabled, setDisadvantageEnabled] = useState(false);
   const [displayRolls, setDisplayRolls] = useState<number[]>([]);
+  const [numDice, setNumDice] = useState(2);
+  const [diceType, setDiceType] = useState(12);
+  const lastProcessedRollIdRef = useRef<number | null>(null);
+
+  const diceTypes = [4, 6, 8, 10, 12, 20];
+  const maxDice = 10;
+
+  const rollCustomDice = () => {
+    if (isRolling) return;
+
+    setIsRolling(true);
+    setDisplayRolls(Array.from({ length: numDice }, () => Math.floor(Math.random() * diceType) + 1));
+
+    const animationDuration = 600;
+    const startTime = Date.now();
+
+    const animateRoll = () => {
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed < animationDuration) {
+        setDisplayRolls(Array.from({ length: numDice }, () => Math.floor(Math.random() * diceType) + 1));
+        requestAnimationFrame(animateRoll);
+        return;
+      }
+
+      const rolls = Array.from({ length: numDice }, () => Math.floor(Math.random() * diceType) + 1);
+      const total = rolls.reduce((sum, current) => sum + current, 0);
+
+      const result: DiceResult = {
+        formula: `${numDice}d${diceType}`,
+        total,
+        rolls,
+        timestamp: new Date().toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }),
+      };
+
+      setHistory((prev) => [result, ...prev.slice(0, 4)]);
+      setIsRolling(false);
+    };
+
+    animateRoll();
+  };
 
   useEffect(() => {
-    if (!rollRequest || isRolling) return;
+    if (!rollRequest) return;
+    if (isRolling) return;
+    if (lastProcessedRollIdRef.current === rollRequest.id) return;
+
+    lastProcessedRollIdRef.current = rollRequest.id;
 
     const diceSides = [rollRequest.attributeDie, rollRequest.trainingDie];
     if (advantageEnabled) diceSides.push(6);
@@ -88,7 +138,7 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
     };
 
     animateRoll();
-  }, [rollRequest, advantageEnabled, disadvantageEnabled, isRolling]);
+  }, [rollRequest, advantageEnabled, disadvantageEnabled]);
 
   return (
     <div className="space-y-4">
@@ -107,13 +157,18 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className={`h-14 border-2 border-red-500 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-red-300' : 'text-red-500'}`}>
+        <div className="grid grid-cols-2 gap-2 mb-1">
+          <div className={`h-14 border-2 border-blue-500 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-blue-300' : 'text-blue-500'}`}>
             {displayRolls[0] ?? '-'}
           </div>
-          <div className={`h-14 border-2 border-red-500 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-red-300' : 'text-red-500'}`}>
+          <div className={`h-14 border-2 border-purple-600 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-purple-300' : 'text-purple-500'}`}>
             {displayRolls[1] ?? '-'}
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mb-3 text-[10px] uppercase tracking-wide font-bold">
+          <div className="text-center text-blue-400">Esperanca</div>
+          <div className="text-center text-purple-400">Medo</div>
         </div>
 
         {(advantageEnabled || disadvantageEnabled) && (
@@ -154,6 +209,57 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
             Desvantagem
           </button>
         </div>
+      </div>
+
+      <div className="border-2 border-red-500 p-4 bg-black">
+        <h3 className="text-xs font-bold text-red-500 uppercase mb-4">Rolagem Customizada</h3>
+
+        <div className="mb-4">
+          <div className="text-xs font-bold text-red-400 uppercase mb-2">Numero de Dados</div>
+          <div className="grid grid-cols-5 gap-2">
+            {Array.from({ length: maxDice }, (_, i) => i + 1).map((num) => (
+              <button
+                key={num}
+                onClick={() => setNumDice(num)}
+                className={`py-2 text-xs font-bold border-2 transition-all ${
+                  numDice === num
+                    ? 'bg-red-600 border-red-500 text-white'
+                    : 'border-red-500 text-red-500 hover:bg-red-500 hover:text-black'
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="text-xs font-bold text-red-400 uppercase mb-2">Lados do Dado</div>
+          <div className="grid grid-cols-3 gap-2">
+            {diceTypes.map((type) => (
+              <button
+                key={type}
+                onClick={() => setDiceType(type)}
+                className={`py-2 text-xs font-bold border-2 transition-all ${
+                  diceType === type
+                    ? 'bg-red-600 border-red-500 text-white'
+                    : 'border-red-500 text-red-500 hover:bg-red-500 hover:text-black'
+                }`}
+              >
+                d{type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={rollCustomDice}
+          disabled={isRolling}
+          className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-900 text-white font-bold uppercase border-2 border-red-500 transition-all active:scale-95"
+        >
+          <Dice6 className="inline mr-2" size={20} />
+          {isRolling ? 'Rolando...' : `Rolar ${numDice}d${diceType}`}
+        </button>
       </div>
 
       {history.length > 0 && (

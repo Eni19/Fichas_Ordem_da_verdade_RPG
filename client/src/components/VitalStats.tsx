@@ -1,3 +1,5 @@
+import { Minus, Plus } from 'lucide-react';
+
 interface VitalStatsProps {
   hp: { current: number; max: number };
   sanity: { current: number; max: number };
@@ -16,18 +18,32 @@ export default function VitalStats({
 
   return (
     <div className="card-occult space-y-3">
-      <h3 className="font-display text-sm text-primary uppercase">Vitals</h3>
-
       {/* HP */}
       <div className="space-y-1">
-        <label className="font-display text-xs text-primary uppercase block">HP</label>
+        <label className="font-display text-sm text-primary uppercase block">HP</label>
         <div className="flex gap-1 items-center">
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => onHpChange('current', hp.current + 1)}
+              className="btn-occult p-0.5 h-6 w-6 flex items-center justify-center"
+              aria-label="Aumentar HP atual"
+            >
+              <Plus size={10} />
+            </button>
+            <button
+              onClick={() => onHpChange('current', Math.max(0, hp.current - 1))}
+              className="btn-occult p-0.5 h-6 w-6 flex items-center justify-center"
+              aria-label="Diminuir HP atual"
+            >
+              <Minus size={10} />
+            </button>
+          </div>
           <input
             type="number"
             value={hp.current}
             onChange={(e) => onHpChange('current', parseInt(e.target.value) || 0)}
             style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-            className="w-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-xs p-1"
+            className="w-12 h-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-sm p-1"
             min="0"
           />
           <span className="text-xs text-muted-foreground">/</span>
@@ -36,7 +52,7 @@ export default function VitalStats({
             value={hp.max}
             onChange={(e) => onHpChange('max', parseInt(e.target.value) || 0)}
             style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-            className="w-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-xs p-1"
+            className="w-12 h-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-sm p-1"
             min="0"
           />
         </div>
@@ -50,14 +66,30 @@ export default function VitalStats({
 
       {/* Sanity */}
       <div className="space-y-1">
-        <label className="font-display text-xs text-primary uppercase block">Sanidade</label>
+        <label className="font-display text-sm text-primary uppercase block">Sanidade</label>
         <div className="flex gap-1 items-center">
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => onSanityChange('current', sanity.current + 1)}
+              className="btn-occult p-0.5 h-6 w-6 flex items-center justify-center"
+              aria-label="Aumentar sanidade atual"
+            >
+              <Plus size={10} />
+            </button>
+            <button
+              onClick={() => onSanityChange('current', Math.max(0, sanity.current - 1))}
+              className="btn-occult p-0.5 h-6 w-6 flex items-center justify-center"
+              aria-label="Diminuir sanidade atual"
+            >
+              <Minus size={10} />
+            </button>
+          </div>
           <input
             type="number"
             value={sanity.current}
             onChange={(e) => onSanityChange('current', parseInt(e.target.value) || 0)}
             style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-            className="w-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-xs p-1"
+            className="w-12 h-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-sm p-1"
             min="0"
           />
           <span className="text-xs text-muted-foreground">/</span>
@@ -66,7 +98,7 @@ export default function VitalStats({
             value={sanity.max}
             onChange={(e) => onSanityChange('max', parseInt(e.target.value) || 0)}
             style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-            className="w-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-xs p-1"
+            className="w-12 h-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-sm p-1"
             min="0"
           />
         </div>
