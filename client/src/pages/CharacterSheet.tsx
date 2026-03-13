@@ -25,8 +25,10 @@ import SaveLoad from '@/components/SaveLoad';
 interface Skill {
   id: string;
   name: string;
-  effect: string;
-  cost: number;
+  description: string;
+  damage: string;
+  hasCounter: boolean;
+  counter: number;
 }
 
 interface Pericia {
@@ -191,25 +193,47 @@ export default function CharacterSheet() {
     const newSkill: Skill = {
       id: Date.now().toString(),
       name: 'Nova Habilidade',
-      effect: 'Descrição do efeito',
-      cost: 0,
+      description: 'Descricao da habilidade',
+      damage: '1d6',
+      hasCounter: false,
+      counter: 0,
     };
-    setCharacter({ ...character, skills: [...character.skills, newSkill] });
+    setCharacter((prev) => ({ ...prev, skills: [...prev.skills, newSkill] }));
   };
 
-  const handleUpdateSkill = (id: string, field: keyof Skill, value: string | number) => {
-    setCharacter({
-      ...character,
-      skills: character.skills.map((skill) =>
+  const handleUpdateSkill = (id: string, field: keyof Skill, value: string | number | boolean) => {
+    setCharacter((prev) => ({
+      ...prev,
+      skills: prev.skills.map((skill) =>
         skill.id === id ? { ...skill, [field]: value } : skill
       ),
-    });
+    }));
   };
 
   const handleDeleteSkill = (id: string) => {
-    setCharacter({
-      ...character,
-      skills: character.skills.filter((skill) => skill.id !== id),
+    setCharacter((prev) => ({
+      ...prev,
+      skills: prev.skills.filter((skill) => skill.id !== id),
+    }));
+  };
+
+  const handleReorderSkills = (draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return;
+
+    setCharacter((prev) => {
+      const fromIndex = prev.skills.findIndex((skill) => skill.id === draggedId);
+      const toIndex = prev.skills.findIndex((skill) => skill.id === targetId);
+
+      if (fromIndex === -1 || toIndex === -1) return prev;
+
+      const reordered = [...prev.skills];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, moved);
+
+      return {
+        ...prev,
+        skills: reordered,
+      };
     });
   };
 
@@ -356,7 +380,25 @@ export default function CharacterSheet() {
     });
   };
 
-  const handleLoadCharacter = (data: Partial<CharacterData> & { expertises?: Array<{ id: string; name: string }> }) => {
+  const handleLoadCharacter = (
+    data: Partial<CharacterData> & {
+      expertises?: Array<{ id: string; name: string }>;
+      skills?: Array<
+        Partial<Skill> & { id: string; name?: string; effect?: string; cost?: number }
+      >;
+    }
+  ) => {
+    const loadedSkills: Skill[] = Array.isArray(data.skills)
+      ? data.skills.map((skill) => ({
+          id: skill.id,
+          name: skill.name ?? 'Habilidade',
+          description: skill.description ?? skill.effect ?? '',
+          damage: skill.damage ?? '1d6',
+          hasCounter: skill.hasCounter ?? false,
+          counter: skill.counter ?? skill.cost ?? 0,
+        }))
+      : [];
+
     const loadedPericias: Pericia[] = Array.isArray(data.pericias)
       ? data.pericias.map((pericia) => ({
           id: pericia.id,
@@ -376,6 +418,7 @@ export default function CharacterSheet() {
         ...prev.attributes,
         ...data.attributes,
       },
+      skills: loadedSkills.length > 0 ? loadedSkills : prev.skills,
       pericias: loadedPericias.length > 0 ? loadedPericias : prev.pericias,
     }));
   };
@@ -452,7 +495,7 @@ export default function CharacterSheet() {
         </div>
 
         {/* Center Column - Skills & Pericias */}
-        <div className="flex-1 flex flex-col min-w-0 gap-2 md:gap-4">
+        <div className="flex-1 flex flex-col min-w-0 gap-2 md:gap-4 md:ml-3">
           {/* Pericias Section */}
           <div className="h-80 md:h-[32rem] flex flex-col min-h-0 flex-shrink-0">
             <Pericias
@@ -479,6 +522,7 @@ export default function CharacterSheet() {
               skills={character.skills}
               onUpdateSkill={handleUpdateSkill}
               onDeleteSkill={handleDeleteSkill}
+              onReorderSkills={handleReorderSkills}
             />
           </div>
         </div>

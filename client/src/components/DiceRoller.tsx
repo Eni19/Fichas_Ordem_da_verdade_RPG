@@ -27,6 +27,8 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
   const [advantageEnabled, setAdvantageEnabled] = useState(false);
   const [disadvantageEnabled, setDisadvantageEnabled] = useState(false);
   const [displayRolls, setDisplayRolls] = useState<number[]>([]);
+  const [displayMessage, setDisplayMessage] = useState<string | null>(null);
+  const [displayFlash, setDisplayFlash] = useState<'critical' | 'fail' | null>(null);
   const [numDice, setNumDice] = useState(2);
   const [diceType, setDiceType] = useState(12);
   const lastProcessedRollIdRef = useRef<number | null>(null);
@@ -34,9 +36,24 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
   const diceTypes = [4, 6, 8, 10, 12, 20];
   const maxDice = 10;
 
+  const triggerDisplayOutcome = (firstRoll: number, secondRoll: number) => {
+    if (firstRoll === 1 && secondRoll === 1) {
+      setDisplayMessage('Falha Critica!');
+      setDisplayFlash('fail');
+    } else if (firstRoll === secondRoll && firstRoll >= 6) {
+      setDisplayMessage('Critico!');
+      setDisplayFlash('critical');
+    } else {
+      setDisplayMessage(null);
+      setDisplayFlash(null);
+    }
+  };
+
   const rollCustomDice = () => {
     if (isRolling) return;
 
+    setDisplayMessage(null);
+    setDisplayFlash(null);
     setIsRolling(true);
     setDisplayRolls(Array.from({ length: numDice }, () => Math.floor(Math.random() * diceType) + 1));
 
@@ -84,6 +101,8 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
     if (advantageEnabled) diceSides.push(6);
     if (disadvantageEnabled) diceSides.push(6);
 
+    setDisplayMessage(null);
+    setDisplayFlash(null);
     setIsRolling(true);
 
     const animationDuration = 650;
@@ -102,6 +121,8 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
       const baseTrainingRoll = Math.floor(Math.random() * rollRequest.trainingDie) + 1;
       const finalRolls = [baseAttributeRoll, baseTrainingRoll];
       let total = baseAttributeRoll + baseTrainingRoll;
+
+      triggerDisplayOutcome(baseAttributeRoll, baseTrainingRoll);
 
       if (advantageEnabled) {
         const advantageRoll = Math.floor(Math.random() * 6) + 1;
@@ -142,7 +163,15 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="border-2 border-red-500 p-4 bg-black">
+      <div
+        className={`border-2 p-4 transition-colors duration-200 ${
+          displayFlash === 'critical'
+            ? 'border-yellow-400 bg-yellow-950/25'
+            : displayFlash === 'fail'
+              ? 'border-red-300 bg-red-950/25'
+              : 'border-red-500 bg-black'
+        }`}
+      >
         <h3 className="text-xs font-bold text-red-500 uppercase mb-3">Display de Testes</h3>
 
         <div className="text-xs text-red-300 border border-red-500 p-2 bg-black/80 mb-3 min-h-14">
@@ -170,6 +199,16 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
           <div className="text-center text-blue-400">Esperanca</div>
           <div className="text-center text-purple-400">Medo</div>
         </div>
+
+        {displayMessage && (
+          <div
+            className={`mb-3 text-center text-xs font-bold uppercase ${
+              displayFlash === 'critical' ? 'text-yellow-300' : 'text-red-300'
+            }`}
+          >
+            {displayMessage}
+          </div>
+        )}
 
         {(advantageEnabled || disadvantageEnabled) && (
           <div className="grid grid-cols-2 gap-2 mb-3">

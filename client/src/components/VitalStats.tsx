@@ -104,7 +104,7 @@ export default function VitalStats({
         </div>
         <div className="w-full bg-black border border-primary h-3 overflow-hidden">
           <div
-            className="bg-secondary h-full transition-all duration-300"
+            className="h-full transition-all duration-300 bg-[#1E3A8A]"
             style={{ width: `${sanityPercent}%` }}
           />
         </div>
