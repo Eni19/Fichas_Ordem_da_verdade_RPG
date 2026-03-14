@@ -20,31 +20,31 @@ export default function ArmorSelector({
   };
 
   return (
-    <div className="card-occult space-y-3">
+    <div className="card-occult h-full space-y-3">
       <div className="space-y-2">
         {/* Evasion */}
         <div className="flex items-center gap-2">
-          <label className="font-display text-xs text-primary uppercase flex-shrink-0 w-16">Evasão</label>
+          <label className="font-display text-base text-sky-300 uppercase flex-shrink-0 w-24">Evasão</label>
           <input
             type="number"
             value={evasion}
             onChange={(e) => onEvasionChange(parseInt(e.target.value) || 0)}
             style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-            className="w-12 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary p-1 text-xs"
+            className="w-20 h-14 bg-sky-950/20 border-2 border-sky-400 text-sky-200 text-center focus:outline-none focus:ring-2 focus:ring-sky-400 p-1 text-2xl"
             min="0"
           />
         </div>
 
         {/* Armor */}
         <div className="space-y-1">
-          <label className="font-display text-xs text-primary uppercase block">Armadura</label>
+          <label className="font-display text-sm text-primary uppercase block">Armadura</label>
           <div className="bg-black border border-primary p-2 space-y-2">
             {/* Armor Value Display */}
             <div className="flex items-center justify-between">
-              <span className="font-display text-xs text-primary uppercase">Valor</span>
+              <span className="font-display text-sm text-primary uppercase">Valor</span>
               <span
                 style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-                className="text-primary text-sm"
+                className="text-primary text-base"
               >
                 {armorValue}
               </span>

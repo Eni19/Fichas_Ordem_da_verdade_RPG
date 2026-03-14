@@ -63,21 +63,37 @@ export default function Pericias({
               <p className="font-mono text-xs">Adicione pericias para rolar testes.</p>
             </div>
           ) : (
-            pericias.map((pericia) => (
-              <div key={pericia.id} className="bg-black border border-primary p-2 space-y-2 flex-shrink-0">
+            pericias.map((pericia) => {
+              const isRollMenuActive = pendingRoll?.periciaId === pericia.id;
+
+              return (
+              <div
+                key={pericia.id}
+                className={`group border border-primary p-2 space-y-2 flex-shrink-0 transition-colors duration-200 ${
+                  isRollMenuActive ? 'bg-primary' : 'bg-black hover:bg-primary'
+                }`}
+              >
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={pericia.name}
                     onChange={(e) => onUpdatePericia(pericia.id, 'name', e.target.value)}
-                    className="flex-1 min-w-0 bg-transparent border border-primary text-primary font-display text-sm focus:outline-none focus:ring-0 uppercase px-2 py-1 h-8"
+                    className={`flex-1 min-w-0 bg-transparent border font-display text-sm focus:outline-none focus:ring-0 uppercase px-2 py-1 h-8 transition-colors duration-200 ${
+                      isRollMenuActive
+                        ? 'border-black text-black placeholder:text-black'
+                        : 'border-primary text-primary group-hover:border-black group-hover:text-black group-hover:placeholder:text-black'
+                    }`}
                     placeholder="Nome"
                   />
 
                   <select
                     value={pericia.training}
                     onChange={(e) => onUpdatePericia(pericia.id, 'training', e.target.value)}
-                    className="w-36 bg-input border border-primary text-primary text-sm p-1 focus:outline-none h-8"
+                    className={`w-36 border text-sm p-1 focus:outline-none h-8 transition-colors duration-200 ${
+                      isRollMenuActive
+                        ? 'bg-primary border-black text-black'
+                        : 'bg-input border-primary text-primary group-hover:bg-primary group-hover:border-black group-hover:text-black'
+                    }`}
                   >
                     {TRAINING_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value} className="bg-black text-primary">
@@ -94,14 +110,22 @@ export default function Pericias({
                           : { periciaId: pericia.id, attribute: 'agilidade' }
                       )
                     }
-                    className="w-20 h-8 bg-primary text-black font-bold uppercase text-sm border-2 border-primary hover:bg-black hover:text-primary transition-all"
+                    className={`w-20 h-8 font-bold uppercase text-sm border-2 transition-all hover:bg-black hover:text-primary ${
+                      isRollMenuActive
+                        ? 'bg-black text-primary border-black'
+                        : 'bg-primary text-black border-primary group-hover:bg-black group-hover:text-primary group-hover:border-black'
+                    }`}
                   >
                     Rolar
                   </button>
 
                   <button
                     onClick={() => onDeletePericia(pericia.id)}
-                    className="text-primary hover:text-secondary transition-colors p-0 flex-shrink-0 h-8 w-8 border border-primary flex items-center justify-center"
+                    className={`transition-colors p-0 flex-shrink-0 h-8 w-8 border flex items-center justify-center ${
+                      isRollMenuActive
+                        ? 'text-black border-black hover:text-secondary'
+                        : 'text-primary border-primary hover:text-secondary group-hover:text-black group-hover:border-black'
+                    }`}
                     aria-label="Remover pericia"
                   >
                     <Trash2 size={12} />
@@ -127,7 +151,8 @@ export default function Pericias({
                   </div>
                 )}
               </div>
-            ))
+            );
+            })
           )}
         </div>
       </ScrollArea>

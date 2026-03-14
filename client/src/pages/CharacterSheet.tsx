@@ -53,9 +53,19 @@ interface Weapon {
   id: string;
   name: string;
   traits: string;
-  damage: string;
+  damageDie: number;
+  hasDamageBonus: boolean;
+  damageBonus: number;
   proficiency: number;
   feature: string;
+}
+
+interface DamageRollRequest {
+  id: number;
+  weaponName: string;
+  diceCount: number;
+  diceType: number;
+  modifier: number;
 }
 
 interface Insanity {
@@ -136,6 +146,7 @@ const TRAINING_LABELS: Record<Pericia['training'], string> = {
 
 export default function CharacterSheet() {
   const [pendingRoll, setPendingRoll] = useState<SkillRollRequest | null>(null);
+  const [pendingDamageRoll, setPendingDamageRoll] = useState<DamageRollRequest | null>(null);
   const [character, setCharacter] = useState<CharacterData>({
     name: 'Seu Personagem',
     attributes: {
@@ -162,7 +173,9 @@ export default function CharacterSheet() {
       id: '1',
       name: '',
       traits: '',
-      damage: '',
+      damageDie: 6,
+      hasDamageBonus: false,
+      damageBonus: 0,
       proficiency: 0,
       feature: '',
     },
@@ -170,7 +183,9 @@ export default function CharacterSheet() {
       id: '2',
       name: '',
       traits: '',
-      damage: '',
+      damageDie: 6,
+      hasDamageBonus: false,
+      damageBonus: 0,
       proficiency: 0,
       feature: '',
     },
@@ -330,17 +345,30 @@ export default function CharacterSheet() {
     });
   };
 
-  const handleUpdatePrimaryWeapon = (field: keyof Weapon, value: string | number) => {
+  const handleUpdatePrimaryWeapon = (field: keyof Weapon, value: string | number | boolean) => {
     setCharacter({
       ...character,
       primaryWeapon: { ...character.primaryWeapon, [field]: value },
     });
   };
 
-  const handleUpdateSecondaryWeapon = (field: keyof Weapon, value: string | number) => {
+  const handleUpdateSecondaryWeapon = (field: keyof Weapon, value: string | number | boolean) => {
     setCharacter({
       ...character,
       secondaryWeapon: { ...character.secondaryWeapon, [field]: value },
+    });
+  };
+
+  const handleRollWeaponDamage = (weapon: Weapon) => {
+    const diceCount = Math.max(1, weapon.proficiency || 0);
+    const modifier = weapon.hasDamageBonus ? weapon.damageBonus : 0;
+
+    setPendingDamageRoll({
+      id: Date.now(),
+      weaponName: weapon.name || 'Arma sem nome',
+      diceCount,
+      diceType: weapon.damageDie,
+      modifier,
     });
   };
 
@@ -388,6 +416,26 @@ export default function CharacterSheet() {
       >;
     }
   ) => {
+    const normalizeWeapon = (weapon: Partial<Weapon> | undefined, fallback: Weapon): Weapon => {
+      const parsedLegacyDie =
+        typeof weapon?.damage === 'string'
+          ? Number((weapon.damage.match(/d(\d+)/i) || [])[1] || 0)
+          : 0;
+
+      const candidateDie = Number(weapon?.damageDie ?? parsedLegacyDie ?? fallback.damageDie);
+      const supportedDice = [4, 6, 8, 10, 12, 20];
+      const safeDie = supportedDice.includes(candidateDie) ? candidateDie : 6;
+
+      return {
+        ...fallback,
+        ...weapon,
+        damageDie: safeDie,
+        hasDamageBonus: Boolean(weapon?.hasDamageBonus),
+        damageBonus: Number(weapon?.damageBonus ?? 0),
+        proficiency: Number(weapon?.proficiency ?? fallback.proficiency),
+      };
+    };
+
     const loadedSkills: Skill[] = Array.isArray(data.skills)
       ? data.skills.map((skill) => ({
           id: skill.id,
@@ -420,6 +468,8 @@ export default function CharacterSheet() {
       },
       skills: loadedSkills.length > 0 ? loadedSkills : prev.skills,
       pericias: loadedPericias.length > 0 ? loadedPericias : prev.pericias,
+      primaryWeapon: normalizeWeapon(data.primaryWeapon, prev.primaryWeapon),
+      secondaryWeapon: normalizeWeapon(data.secondaryWeapon, prev.secondaryWeapon),
     }));
   };
 
@@ -466,7 +516,7 @@ export default function CharacterSheet() {
               />
             </div>
           </div>
-          <div className="w-full md:w-64 flex-shrink-0">
+          <div className="w-full md:w-56 flex-shrink-0">
             <ArmorSelector
               armorValue={character.armor}
               onArmorChange={handleArmorChange}
@@ -529,7 +579,7 @@ export default function CharacterSheet() {
 
         {/* Right Column - Dice */}
         <div className="flex-shrink-0 w-full md:w-56 pr-0 md:pr-4">
-          <DiceRoller rollRequest={pendingRoll} />
+          <DiceRoller rollRequest={pendingRoll} damageRollRequest={pendingDamageRoll} />
         </div>
       </div>
 
@@ -543,6 +593,8 @@ export default function CharacterSheet() {
         onUpdatePrimaryWeapon={handleUpdatePrimaryWeapon}
         secondaryWeapon={character.secondaryWeapon}
         onUpdateSecondaryWeapon={handleUpdateSecondaryWeapon}
+        onRollPrimaryDamage={() => handleRollWeaponDamage(character.primaryWeapon)}
+        onRollSecondaryDamage={() => handleRollWeaponDamage(character.secondaryWeapon)}
       />
 
       {/* Insanity Panel - Second Retractable Sidebar */}

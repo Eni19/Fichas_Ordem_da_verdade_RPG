@@ -17,11 +17,20 @@ interface SkillRollRequest {
   trainingDie: number;
 }
 
-interface DiceRollerProps {
-  rollRequest: SkillRollRequest | null;
+interface DamageRollRequest {
+  id: number;
+  weaponName: string;
+  diceCount: number;
+  diceType: number;
+  modifier: number;
 }
 
-export default function DiceRoller({ rollRequest }: DiceRollerProps) {
+interface DiceRollerProps {
+  rollRequest: SkillRollRequest | null;
+  damageRollRequest: DamageRollRequest | null;
+}
+
+export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRollerProps) {
   const [isRolling, setIsRolling] = useState(false);
   const [history, setHistory] = useState<DiceResult[]>([]);
   const [advantageEnabled, setAdvantageEnabled] = useState(false);
@@ -32,9 +41,14 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
   const [numDice, setNumDice] = useState(2);
   const [diceType, setDiceType] = useState(12);
   const lastProcessedRollIdRef = useRef<number | null>(null);
+  const [displayMode, setDisplayMode] = useState<'skill' | 'custom'>('skill');
+  const [customFormula, setCustomFormula] = useState('');
+  const [displaySubtitle, setDisplaySubtitle] = useState<string | null>(null);
+  const [displayModifier, setDisplayModifier] = useState(0);
 
   const diceTypes = [4, 6, 8, 10, 12, 20];
   const maxDice = 10;
+  const lastProcessedDamageRollIdRef = useRef<number | null>(null);
 
   const triggerDisplayOutcome = (firstRoll: number, secondRoll: number) => {
     if (firstRoll === 1 && secondRoll === 1) {
@@ -52,6 +66,10 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
   const rollCustomDice = () => {
     if (isRolling) return;
 
+    setDisplayMode('custom');
+    setCustomFormula(`${numDice}d${diceType}`);
+    setDisplaySubtitle(null);
+    setDisplayModifier(0);
     setDisplayMessage(null);
     setDisplayFlash(null);
     setIsRolling(true);
@@ -84,6 +102,53 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
       };
 
       setHistory((prev) => [result, ...prev.slice(0, 4)]);
+      setDisplayRolls(rolls);
+      setIsRolling(false);
+    };
+
+    animateRoll();
+  };
+
+  const rollUnifiedDisplay = (formula: string, count: number, type: number, modifier = 0, subtitle?: string) => {
+    setDisplayMode('custom');
+    setCustomFormula(formula);
+    setDisplaySubtitle(subtitle ?? null);
+    setDisplayModifier(modifier);
+    setDisplayMessage(null);
+    setDisplayFlash(null);
+    setIsRolling(true);
+    setDisplayRolls(Array.from({ length: count }, () => Math.floor(Math.random() * type) + 1));
+
+    const animationDuration = 650;
+    const startTime = Date.now();
+
+    const animateRoll = () => {
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed < animationDuration) {
+        setDisplayRolls(Array.from({ length: count }, () => Math.floor(Math.random() * type) + 1));
+        requestAnimationFrame(animateRoll);
+        return;
+      }
+
+      const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * type) + 1);
+      const total = rolls.reduce((sum, current) => sum + current, 0) + modifier;
+
+      const resultRolls = modifier !== 0 ? [...rolls, modifier] : rolls;
+
+      const result: DiceResult = {
+        formula,
+        total,
+        rolls: resultRolls,
+        timestamp: new Date().toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }),
+      };
+
+      setHistory((prev) => [result, ...prev.slice(0, 4)]);
+      setDisplayRolls(rolls);
       setIsRolling(false);
     };
 
@@ -96,6 +161,8 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
     if (lastProcessedRollIdRef.current === rollRequest.id) return;
 
     lastProcessedRollIdRef.current = rollRequest.id;
+    setDisplayMode('skill');
+    setDisplayModifier(0);
 
     const diceSides = [rollRequest.attributeDie, rollRequest.trainingDie];
     if (advantageEnabled) diceSides.push(6);
@@ -159,7 +226,28 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
     };
 
     animateRoll();
-  }, [rollRequest, advantageEnabled, disadvantageEnabled]);
+  }, [rollRequest, advantageEnabled, disadvantageEnabled, isRolling]);
+
+  useEffect(() => {
+    if (!damageRollRequest) return;
+    if (isRolling) return;
+    if (lastProcessedDamageRollIdRef.current === damageRollRequest.id) return;
+
+    lastProcessedDamageRollIdRef.current = damageRollRequest.id;
+
+    const bonus = Number(damageRollRequest.modifier || 0);
+    const formula = `${damageRollRequest.diceCount}d${damageRollRequest.diceType}${
+      bonus !== 0 ? ` + ${bonus}` : ''
+    }`;
+
+    rollUnifiedDisplay(
+      formula,
+      damageRollRequest.diceCount,
+      damageRollRequest.diceType,
+      bonus,
+      `${damageRollRequest.weaponName} - Dano`
+    );
+  }, [damageRollRequest, isRolling]);
 
   return (
     <div className="space-y-4">
@@ -175,30 +263,61 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
         <h3 className="text-xs font-bold text-red-500 uppercase mb-3">Display de Testes</h3>
 
         <div className="text-xs text-red-300 border border-red-500 p-2 bg-black/80 mb-3 min-h-14">
-          {rollRequest ? (
+          {displayMode === 'skill' && rollRequest ? (
             <>
               <div className="font-bold text-red-400 uppercase">{rollRequest.periciaName}</div>
               <div>{rollRequest.trainingLabel} com {rollRequest.attributeLabel}</div>
               <div className="text-red-400">1d{rollRequest.attributeDie} + 1d{rollRequest.trainingDie}</div>
+            </>
+          ) : displayMode === 'custom' && customFormula ? (
+            <>
+              <div className="font-bold text-red-400 uppercase">{displaySubtitle || 'Rolagem'}</div>
+              <div className="text-red-400">{customFormula}</div>
             </>
           ) : (
             <div>Use o botao Rolar em uma pericia para iniciar.</div>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-1">
-          <div className={`h-14 border-2 border-blue-500 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-blue-300' : 'text-blue-500'}`}>
-            {displayRolls[0] ?? '-'}
-          </div>
-          <div className={`h-14 border-2 border-purple-600 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-purple-300' : 'text-purple-500'}`}>
-            {displayRolls[1] ?? '-'}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mb-3 text-[10px] uppercase tracking-wide font-bold">
-          <div className="text-center text-blue-400">Esperanca</div>
-          <div className="text-center text-purple-400">Medo</div>
-        </div>
+        {displayMode === 'skill' ? (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-1">
+              <div className={`h-14 border-2 border-blue-500 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-blue-300' : 'text-blue-500'}`}>
+                {displayRolls[0] ?? '-'}
+              </div>
+              <div className={`h-14 border-2 border-purple-600 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-purple-300' : 'text-purple-500'}`}>
+                {displayRolls[1] ?? '-'}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mb-3 text-[10px] uppercase tracking-wide font-bold">
+              <div className="text-center text-blue-400">Esperanca</div>
+              <div className="text-center text-purple-400">Medo</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={`h-16 mb-1 border-2 border-red-500 bg-black flex flex-col items-center justify-center ${isRolling ? 'animate-pulse' : ''}`}>
+              {displayRolls.length > 0 ? (
+                <>
+                  <div className={`text-3xl font-bold ${isRolling ? 'text-red-300' : 'text-red-400'}`}>
+                    {displayRolls.reduce((a, b) => a + b, 0) + displayModifier}
+                  </div>
+                  {!isRolling && displayRolls.length > 1 && (
+                    <div className="text-[9px] text-red-600 font-mono">
+                      {displayRolls.join(' + ')}
+                      {displayModifier !== 0 && ` ${displayModifier > 0 ? '+' : '-'} ${Math.abs(displayModifier)}`}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="text-3xl font-bold text-red-600">-</span>
+              )}
+            </div>
+            <div className="mb-3 text-[10px] uppercase tracking-wide font-bold text-center text-red-500">
+              {displaySubtitle || customFormula || 'Customizado'}
+            </div>
+          </>
+        )}
 
         {displayMessage && (
           <div
@@ -216,7 +335,7 @@ export default function DiceRoller({ rollRequest }: DiceRollerProps) {
               {advantageEnabled ? `+${displayRolls[2] ?? '-'}` : '-'}
             </div>
             <div className="h-10 border border-red-500 text-red-400 flex items-center justify-center text-sm font-bold">
-              {disadvantageEnabled ? `-${displayRolls[advantageEnabled ? 3 : 2] ?? '-'}` : '-'}
+              {disadvantageEnabled ? `-${Math.abs(displayRolls[advantageEnabled ? 3 : 2] ?? 0)}` : '-'}
             </div>
           </div>
         )}
