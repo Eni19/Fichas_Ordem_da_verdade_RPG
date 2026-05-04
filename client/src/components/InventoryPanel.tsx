@@ -49,8 +49,6 @@ export default function InventoryPanel({
   onRollPrimaryDamage,
   onRollSecondaryDamage,
 }: InventoryPanelProps) {
-  const damageDice = [4, 6, 8, 10, 12, 20];
-
   const autoResizeTextarea = (target: HTMLTextAreaElement) => {
     target.style.height = 'auto';
     target.style.height = `${target.scrollHeight}px`;
@@ -114,17 +112,12 @@ export default function InventoryPanel({
                 </div>
                 <div className="flex gap-1 items-center">
                   <label className="font-display text-sm text-primary uppercase flex-shrink-0">Dado:</label>
-                  <select
+                  <input
+                    type="number"
                     value={primaryWeapon.damageDie}
                     onChange={(e) => onUpdatePrimaryWeapon('damageDie', parseInt(e.target.value))}
                     className="flex-1 bg-input border border-primary text-primary text-sm p-1 focus:outline-none"
-                  >
-                    {damageDice.map((die) => (
-                      <option key={die} value={die} className="bg-black text-primary">
-                        d{die}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="flex items-center gap-1 text-sm text-primary">
@@ -191,17 +184,12 @@ export default function InventoryPanel({
                 </div>
                 <div className="flex gap-1 items-center">
                   <label className="font-display text-sm text-primary uppercase flex-shrink-0">Dado:</label>
-                  <select
+                  <input
+                    type="number"
                     value={secondaryWeapon.damageDie}
                     onChange={(e) => onUpdateSecondaryWeapon('damageDie', parseInt(e.target.value))}
                     className="flex-1 bg-input border border-primary text-primary text-sm p-1 focus:outline-none"
-                  >
-                    {damageDice.map((die) => (
-                      <option key={die} value={die} className="bg-black text-primary">
-                        d{die}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="flex items-center gap-1 text-sm text-primary">

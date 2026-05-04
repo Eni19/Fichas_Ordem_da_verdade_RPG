@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 type TrainingLevel = 'treinado' | 'veterano' | 'expert';
-type AttributeKey = 'agilidade' | 'força' | 'finesse' | 'instinto' | 'presença' | 'conhecimento';
+type AttributeKey = 'força' | 'agilidade' | 'inteligência' | 'presença' | 'vigor';
 
 interface Pericia {
   id: string;
@@ -20,12 +20,11 @@ interface PericiasProps {
 }
 
 const ATTRIBUTE_OPTIONS: Array<{ value: AttributeKey; label: string }> = [
-  { value: 'agilidade', label: 'Agilidade' },
   { value: 'força', label: 'Forca' },
-  { value: 'finesse', label: 'Finesse' },
-  { value: 'instinto', label: 'Instinto' },
+  { value: 'agilidade', label: 'Agilidade' },
+  { value: 'inteligência', label: 'Inteligencia' },
   { value: 'presença', label: 'Presenca' },
-  { value: 'conhecimento', label: 'Conhecimento' },
+  { value: 'vigor', label: 'Vigor' },
 ];
 
 const TRAINING_OPTIONS: Array<{ value: TrainingLevel; label: string }> = [
@@ -107,7 +106,7 @@ export default function Pericias({
                       setPendingRoll((prev) =>
                         prev?.periciaId === pericia.id
                           ? null
-                          : { periciaId: pericia.id, attribute: 'agilidade' }
+                          : { periciaId: pericia.id, attribute: 'força' }
                       )
                     }
                     className={`w-20 h-8 font-bold uppercase text-sm border-2 transition-all hover:bg-black hover:text-primary ${

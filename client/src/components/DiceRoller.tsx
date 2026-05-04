@@ -13,7 +13,7 @@ interface SkillRollRequest {
   periciaName: string;
   attributeLabel: string;
   trainingLabel: string;
-  attributeDie: number;
+  attributeValue: number;
   trainingDie: number;
 }
 
@@ -49,6 +49,50 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
   const diceTypes = [4, 6, 8, 10, 12, 20];
   const maxDice = 10;
   const lastProcessedDamageRollIdRef = useRef<number | null>(null);
+
+  const getAttributeRollConfig = (attributeValue: number) => {
+    switch (attributeValue) {
+      case 0:
+        return { animationDie: 6, formula: '2d6 (<)' };
+      case 1:
+        return { animationDie: 6, formula: '1d6' };
+      case 2:
+        return { animationDie: 8, formula: '1d8' };
+      case 3:
+        return { animationDie: 10, formula: '1d10' };
+      case 4:
+        return { animationDie: 12, formula: '1d12' };
+      case 5:
+        return { animationDie: 12, formula: '2d12 (>)' };
+      default:
+        return { animationDie: 6, formula: '1d6' };
+    }
+  };
+
+  const rollAttributeValue = (attributeValue: number) => {
+    switch (attributeValue) {
+      case 0: {
+        const rollA = Math.floor(Math.random() * 6) + 1;
+        const rollB = Math.floor(Math.random() * 6) + 1;
+        return Math.min(rollA, rollB);
+      }
+      case 1:
+        return Math.floor(Math.random() * 6) + 1;
+      case 2:
+        return Math.floor(Math.random() * 8) + 1;
+      case 3:
+        return Math.floor(Math.random() * 10) + 1;
+      case 4:
+        return Math.floor(Math.random() * 12) + 1;
+      case 5: {
+        const rollA = Math.floor(Math.random() * 12) + 1;
+        const rollB = Math.floor(Math.random() * 12) + 1;
+        return Math.max(rollA, rollB);
+      }
+      default:
+        return Math.floor(Math.random() * 6) + 1;
+    }
+  };
 
   const triggerDisplayOutcome = (firstRoll: number, secondRoll: number) => {
     if (firstRoll === 1 && secondRoll === 1) {
@@ -164,7 +208,9 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     setDisplayMode('skill');
     setDisplayModifier(0);
 
-    const diceSides = [rollRequest.attributeDie, rollRequest.trainingDie];
+    const attributeConfig = getAttributeRollConfig(rollRequest.attributeValue);
+
+    const diceSides = [attributeConfig.animationDie, rollRequest.trainingDie];
     if (advantageEnabled) diceSides.push(6);
     if (disadvantageEnabled) diceSides.push(6);
 
@@ -184,7 +230,7 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
         return;
       }
 
-      const baseAttributeRoll = Math.floor(Math.random() * rollRequest.attributeDie) + 1;
+      const baseAttributeRoll = rollAttributeValue(rollRequest.attributeValue);
       const baseTrainingRoll = Math.floor(Math.random() * rollRequest.trainingDie) + 1;
       const finalRolls = [baseAttributeRoll, baseTrainingRoll];
       let total = baseAttributeRoll + baseTrainingRoll;
@@ -205,7 +251,7 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
 
       setDisplayRolls(finalRolls);
 
-      const formulaParts = [`1d${rollRequest.attributeDie}`, `1d${rollRequest.trainingDie}`];
+      const formulaParts = [attributeConfig.formula, `1d${rollRequest.trainingDie}`];
       if (advantageEnabled) formulaParts.push('1d6');
       if (disadvantageEnabled) formulaParts.push('-1d6');
       const formula = formulaParts.join(' + ').replace('+ -', '- ');
@@ -267,7 +313,7 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
             <>
               <div className="font-bold text-red-400 uppercase">{rollRequest.periciaName}</div>
               <div>{rollRequest.trainingLabel} com {rollRequest.attributeLabel}</div>
-              <div className="text-red-400">1d{rollRequest.attributeDie} + 1d{rollRequest.trainingDie}</div>
+              <div className="text-red-400">{getAttributeRollConfig(rollRequest.attributeValue).formula} + 1d{rollRequest.trainingDie}</div>
             </>
           ) : displayMode === 'custom' && customFormula ? (
             <>
@@ -290,8 +336,14 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 mb-3 text-[10px] uppercase tracking-wide font-bold">
-              <div className="text-center text-blue-400">Esperanca</div>
-              <div className="text-center text-purple-400">Medo</div>
+              <div className="text-center text-blue-400">
+                <div>Atributo</div>
+                <div className="text-[9px] text-blue-300 normal-case tracking-normal">{rollRequest?.attributeLabel || '-'}</div>
+              </div>
+              <div className="text-center text-purple-400">
+                <div>Pericia</div>
+                <div className="text-[9px] text-purple-300 normal-case tracking-normal">{rollRequest?.trainingLabel || '-'}</div>
+              </div>
             </div>
           </>
         ) : (

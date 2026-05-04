@@ -9,7 +9,9 @@ import HopeCounter from '@/components/HopeCounter';
 import ArmorSelector from '@/components/ArmorSelector';
 import InventoryPanel from '@/components/InventoryPanel';
 import InsanityPanel from '@/components/InsanityPanel';
+import RitualsPanel from '@/components/RitualsPanel';
 import SaveLoad from '@/components/SaveLoad';
+import symbols, { type RitualSymbol } from '@/data/symbols';
 
 /**
  * Dark Occult Minimalism - Ficha de RPG Daggerheart
@@ -80,15 +82,59 @@ interface ParanormalPower {
   description: string;
 }
 
+type RitualType = 'dano' | 'aflicao' | 'utilidade';
+
+interface RitualVersion {
+  name: string;
+  circle: string;
+  cost: string;
+  duration: string;
+  resistance: number;
+  type: RitualType;
+  description: string;
+  retained: boolean;
+}
+
+interface Ritual {
+  id: string;
+  versions: RitualVersion[];
+  activeVersion: number;
+}
+
+interface RitualComponent {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface RitualConjureState {
+  ritualId: string;
+  symbolChoices: RitualSymbol[];
+  selectedSymbol: RitualSymbol | null;
+  step: number; // 1 = escolha do símbolo, 2 = escolha de componente, 3 = final
+  chosenComponentId?: string | null;
+}
+
+interface LoadedRitual extends Partial<Omit<Ritual, 'versions'>> {
+  name?: string;
+  circle?: string;
+  cost?: string;
+  duration?: string;
+  resistance?: number;
+  type?: RitualType;
+  description?: string;
+  retained?: boolean;
+  versions?: Array<Partial<RitualVersion>>;
+}
+
 interface CharacterData {
   name: string;
   attributes: {
-    agilidade: number;
     força: number;
-    finesse: number;
-    instinto: number;
+    agilidade: number;
+    inteligência: number;
     presença: number;
-    conhecimento: number;
+    vigor: number;
   };
   skills: Skill[];
   pericias: Pericia[];
@@ -103,6 +149,8 @@ interface CharacterData {
   secondaryWeapon: Weapon;
   insanities: Insanity[];
   paranormalPowers: ParanormalPower[];
+  rituals: Ritual[];
+  ritualComponents: RitualComponent[];
 }
 
 interface SkillRollRequest {
@@ -110,26 +158,24 @@ interface SkillRollRequest {
   periciaName: string;
   attributeLabel: string;
   trainingLabel: string;
-  attributeDie: number;
+  attributeValue: number;
   trainingDie: number;
 }
 
-const ATTRIBUTE_DIE_MAP: Record<number, number> = {
-  [-1]: 4,
-  0: 6,
-  1: 8,
-  2: 10,
-  3: 12,
-  4: 12,
-};
+const ATTRIBUTE_KEYS: Array<keyof CharacterData['attributes']> = [
+  'força',
+  'agilidade',
+  'inteligência',
+  'presença',
+  'vigor',
+];
 
 const ATTRIBUTE_LABELS: Record<keyof CharacterData['attributes'], string> = {
-  agilidade: 'Agilidade',
   força: 'Forca',
-  finesse: 'Finesse',
-  instinto: 'Instinto',
+  agilidade: 'Agilidade',
+  inteligência: 'Inteligencia',
   presença: 'Presenca',
-  conhecimento: 'Conhecimento',
+  vigor: 'Vigor',
 };
 
 const TRAINING_DIE_MAP: Record<Pericia['training'], number> = {
@@ -147,16 +193,29 @@ const TRAINING_LABELS: Record<Pericia['training'], string> = {
 export default function CharacterSheet() {
   const [pendingRoll, setPendingRoll] = useState<SkillRollRequest | null>(null);
   const [pendingDamageRoll, setPendingDamageRoll] = useState<DamageRollRequest | null>(null);
-  const [openSidebar, setOpenSidebar] = useState<'inventory' | 'insanity' | null>(null);
+  const [openSidebar, setOpenSidebar] = useState<'inventory' | 'insanity' | 'rituals' | null>(null);
+  const [ritualConjureState, setRitualConjureState] = useState<RitualConjureState | null>(null);
+  const [ritualResolveState, setRitualResolveState] = useState<
+    | {
+        ritualId: string;
+        selectedAttribute?: keyof CharacterData['attributes'];
+        selectedPericiaId?: string | null;
+        isRolling?: boolean;
+        rolls?: number[];
+        total?: number;
+        passed?: boolean;
+        difficulty?: number;
+      }
+    | null
+  >(null);
   const [character, setCharacter] = useState<CharacterData>({
     name: 'Seu Personagem',
     attributes: {
-      agilidade: 0,
       força: 0,
-      finesse: 0,
-      instinto: 0,
+      agilidade: 0,
+      inteligência: 0,
       presença: 0,
-      conhecimento: 0,
+      vigor: 0,
     },
     skills: [],
     pericias: [
@@ -192,6 +251,8 @@ export default function CharacterSheet() {
     },
     insanities: [],
     paranormalPowers: [],
+    rituals: [],
+    ritualComponents: [],
   });
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,14 +344,14 @@ export default function CharacterSheet() {
     if (!pericia) return;
 
     const attributeValue = character.attributes[selectedAttribute];
-    const normalizedAttribute = Math.max(-1, Math.min(4, attributeValue));
+    const normalizedAttribute = Math.max(0, Math.min(5, attributeValue));
 
     setPendingRoll({
       id: Date.now(),
       periciaName: pericia.name || 'Pericia sem nome',
       attributeLabel: ATTRIBUTE_LABELS[selectedAttribute],
       trainingLabel: TRAINING_LABELS[pericia.training],
-      attributeDie: ATTRIBUTE_DIE_MAP[normalizedAttribute],
+      attributeValue: normalizedAttribute,
       trainingDie: TRAINING_DIE_MAP[pericia.training],
     });
   };
@@ -381,6 +442,249 @@ export default function CharacterSheet() {
     setOpenSidebar((prev) => (prev === 'insanity' ? null : 'insanity'));
   };
 
+  const toggleRitualsPanel = () => {
+    setOpenSidebar((prev) => (prev === 'rituals' ? null : 'rituals'));
+  };
+
+  const handleAddRitual = (ritual: Ritual) => {
+    setCharacter((prev) => {
+      const activeVersion = ritual.versions[ritual.activeVersion] ?? ritual.versions[0];
+      const costValue = parseInt(activeVersion?.cost || '0') || 0;
+
+      const newSanity = activeVersion?.retained
+        ? {
+            current: Math.max(0, prev.sanity.current - costValue),
+            max: Math.max(0, prev.sanity.max - costValue),
+          }
+        : prev.sanity;
+
+      return {
+        ...prev,
+        sanity: newSanity,
+        rituals: [...prev.rituals, ritual],
+      };
+    });
+  };
+
+  const getRandomSymbolChoices = (): RitualSymbol[] => {
+    const pool = [...symbols];
+    for (let index = pool.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
+    }
+
+    return pool.slice(0, 3);
+  };
+
+  const handleSetRitualVersion = (id: string, activeVersion: number) => {
+    setCharacter((prev) => ({
+      ...prev,
+      rituals: prev.rituals.map((ritual) =>
+        ritual.id === id
+          ? {
+              ...ritual,
+              activeVersion: Math.max(0, Math.min(activeVersion, ritual.versions.length - 1)),
+            }
+          : ritual
+      ),
+    }));
+  };
+
+  const handleUpdateRitual = (id: string, ritual: Ritual) => {
+    setCharacter((prev) => {
+      const oldRitual = prev.rituals.find((r) => r.id === id);
+      const oldVersion = oldRitual?.versions[oldRitual.activeVersion] ?? oldRitual?.versions[0];
+      const newVersion = ritual.versions[ritual.activeVersion] ?? ritual.versions[0];
+      const wasRetained = oldVersion?.retained ?? false;
+      const isRetained = newVersion?.retained ?? false;
+      const costValue = parseInt(newVersion?.cost || '0') || 0;
+
+      let newSanity = prev.sanity;
+
+      if (!wasRetained && isRetained) {
+        // Ritual is being retained - deduct cost from current and max
+        newSanity = {
+          current: Math.max(0, prev.sanity.current - costValue),
+          max: Math.max(0, prev.sanity.max - costValue),
+        };
+      } else if (wasRetained && !isRetained) {
+        // Ritual is no longer retained - restore max sanity
+        newSanity = {
+          current: prev.sanity.current,
+          max: prev.sanity.max + costValue,
+        };
+      }
+
+      return {
+        ...prev,
+        sanity: newSanity,
+        rituals: prev.rituals.map((item) => (item.id === id ? ritual : item)),
+      };
+    });
+  };
+
+  const handleRemoveRitual = (id: string) => {
+    setCharacter((prev) => {
+      const ritualToRemove = prev.rituals.find((r) => r.id === id);
+      const currentVersion = ritualToRemove?.versions[ritualToRemove.activeVersion] ?? ritualToRemove?.versions[0];
+      const costValue = parseInt(currentVersion?.cost || '0') || 0;
+
+      let newSanity = prev.sanity;
+      if (currentVersion?.retained) {
+        // If removing a retained ritual, restore max sanity
+        newSanity = {
+          current: prev.sanity.current,
+          max: prev.sanity.max + costValue,
+        };
+      }
+
+      return {
+        ...prev,
+        sanity: newSanity,
+        rituals: prev.rituals.filter((item) => item.id !== id),
+      };
+    });
+  };
+
+  const handleConjureRitual = (_ritual: Ritual) => {
+    const ritual = _ritual;
+    const activeVersion = ritual.versions[ritual.activeVersion] ?? ritual.versions[0];
+
+    if (activeVersion?.retained) {
+      handleUpdateRitual(ritual.id, {
+        ...ritual,
+        versions: ritual.versions.map((version, index) =>
+          index === ritual.activeVersion ? { ...version, retained: false } : version
+        ),
+      });
+      return;
+    }
+
+    setRitualConjureState({
+      ritualId: ritual.id,
+      symbolChoices: getRandomSymbolChoices(),
+      selectedSymbol: null,
+      step: 1,
+      chosenComponentId: null,
+    });
+    setOpenSidebar('rituals');
+  };
+
+  const handleChooseRitualSymbol = (symbol: RitualSymbol) => {
+    setRitualConjureState((prev) =>
+      prev ? { ...prev, selectedSymbol: symbol } : prev
+    );
+  };
+
+  const handleContinueRitual = (_ritualId: string) => {
+    setRitualConjureState((prev) => {
+      if (!prev) return prev;
+      if (prev.step === 1 && prev.selectedSymbol) {
+        return { ...prev, step: 2 };
+      }
+      if (prev.step === 2) {
+        return { ...prev, step: 3 };
+      }
+      return prev;
+    });
+    setOpenSidebar('rituals');
+  };
+
+  const handleContinueWithoutComponents = (ritualId: string) => {
+    setRitualConjureState((prev) => (prev && prev.ritualId === ritualId ? { ...prev, step: 3 } : prev));
+    setOpenSidebar('rituals');
+  };
+
+  const handleCancelConjure = () => {
+    setRitualConjureState(null);
+  };
+
+  const handleResolveRitual = (ritualId: string) => {
+    setRitualResolveState({ ritualId });
+    setOpenSidebar('rituals');
+  };
+
+  const rollAttributeValueLocal = (attributeValue: number) => {
+    switch (attributeValue) {
+      case 0: {
+        const a = Math.floor(Math.random() * 6) + 1;
+        const b = Math.floor(Math.random() * 6) + 1;
+        return Math.min(a, b);
+      }
+      case 1:
+        return Math.floor(Math.random() * 6) + 1;
+      case 2:
+        return Math.floor(Math.random() * 8) + 1;
+      case 3:
+        return Math.floor(Math.random() * 10) + 1;
+      case 4:
+        return Math.floor(Math.random() * 12) + 1;
+      case 5: {
+        const a = Math.floor(Math.random() * 12) + 1;
+        const b = Math.floor(Math.random() * 12) + 1;
+        return Math.max(a, b);
+      }
+      default:
+        return Math.floor(Math.random() * 6) + 1;
+    }
+  };
+
+  const handlePerformResolveRoll = async () => {
+    if (!ritualResolveState) return;
+
+    const ritual = character.rituals.find((r) => r.id === ritualResolveState.ritualId);
+    if (!ritual) return;
+
+    const version = ritual.versions[ritual.activeVersion] ?? ritual.versions[0];
+    const costValue = parseInt(version.cost || '0') || 0;
+    const difficulty = 7 + costValue;
+
+    const attributeKey = ritualResolveState.selectedAttribute ?? 'força';
+    const attributeValue = character.attributes[attributeKey];
+    const pericia = character.pericias.find((p) => p.id === ritualResolveState.selectedPericiaId) ?? character.pericias[0];
+    const trainingDie = TRAINING_DIE_MAP[pericia?.training ?? 'treinado'];
+
+    setRitualResolveState((prev) => (prev ? { ...prev, isRolling: true, difficulty } : prev));
+
+    const animationDuration = 900;
+    const start = Date.now();
+    let rafId: number | null = null;
+
+    const animate = () => {
+      const elapsed = Date.now() - start;
+      if (elapsed < animationDuration) {
+        // show random values
+        setRitualResolveState((prev) =>
+          prev
+            ? { ...prev, rolls: [Math.floor(Math.random() * (attributeValue >= 5 ? 12 : 6)) + 1, Math.floor(Math.random() * trainingDie) + 1] }
+            : prev
+        );
+        rafId = requestAnimationFrame(animate);
+        return;
+      }
+
+      // final rolls
+      const attrRoll = rollAttributeValueLocal(attributeValue);
+      const trainRoll = Math.floor(Math.random() * trainingDie) + 1;
+      const total = attrRoll + trainRoll;
+      const passed = total >= difficulty;
+
+      setRitualResolveState((prev) =>
+        prev
+          ? { ...prev, rolls: [attrRoll, trainRoll], total, passed, isRolling: false, difficulty }
+          : prev
+      );
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+
+    animate();
+  };
+
+  const handleCloseResolve = () => {
+    setRitualResolveState(null);
+    setRitualConjureState(null);
+  };
+
   const handleAddInsanity = (insanity: Insanity) => {
     setCharacter({ ...character, insanities: [...character.insanities, insanity] });
   };
@@ -418,11 +722,12 @@ export default function CharacterSheet() {
   };
 
   const handleLoadCharacter = (
-    data: Partial<CharacterData> & {
+    data: Partial<Omit<CharacterData, 'rituals'>> & {
       expertises?: Array<{ id: string; name: string }>;
       skills?: Array<
         Partial<Skill> & { id: string; name?: string; effect?: string; cost?: number }
       >;
+      rituals?: LoadedRitual[];
     }
   ) => {
     const normalizeWeapon = (weapon: Partial<Weapon> | undefined, fallback: Weapon): Weapon => {
@@ -432,8 +737,7 @@ export default function CharacterSheet() {
           : 0;
 
       const candidateDie = Number(weapon?.damageDie ?? parsedLegacyDie ?? fallback.damageDie);
-      const supportedDice = [4, 6, 8, 10, 12, 20];
-      const safeDie = supportedDice.includes(candidateDie) ? candidateDie : 6;
+      const safeDie = Number.isFinite(candidateDie) && candidateDie > 0 ? candidateDie : fallback.damageDie;
 
       return {
         ...fallback,
@@ -468,15 +772,68 @@ export default function CharacterSheet() {
           training: 'treinado' as const,
         }));
 
+    const normalizeRitualVersion = (version: Partial<RitualVersion> | undefined): RitualVersion => ({
+      name: version?.name ?? '',
+      circle: version?.circle ?? '',
+      cost: version?.cost ?? '',
+      duration: version?.duration ?? '',
+      resistance: Number(version?.resistance ?? 0),
+      type: version?.type ?? 'utilidade',
+      description: version?.description ?? '',
+      retained: Boolean(version?.retained ?? false),
+    });
+
+    const loadedRituals: Ritual[] = Array.isArray(data.rituals)
+      ? data.rituals.map((ritual) => {
+          const versions = Array.isArray(ritual.versions) && ritual.versions.length > 0
+            ? ritual.versions.slice(0, 3).map((version) => normalizeRitualVersion(version))
+            : [
+                normalizeRitualVersion({
+                  name: ritual.name,
+                  circle: ritual.circle,
+                  cost: ritual.cost,
+                  duration: ritual.duration,
+                  resistance: ritual.resistance,
+                  type: ritual.type,
+                  description: ritual.description,
+                  retained: ritual.retained,
+                }),
+              ];
+
+          return {
+            id: ritual.id ?? Date.now().toString(),
+            versions,
+            activeVersion: Math.max(
+              0,
+              Math.min(Number(ritual.activeVersion ?? 0), versions.length - 1)
+            ),
+          };
+        })
+      : [];
+
+    const loadedRitualComponents: RitualComponent[] = Array.isArray(data.ritualComponents)
+      ? data.ritualComponents.map((component) => ({
+          id: component.id,
+          name: component.name ?? '',
+          description: component.description ?? '',
+        }))
+      : [];
+
     setCharacter((prev) => ({
       ...prev,
       ...data,
       attributes: {
-        ...prev.attributes,
-        ...data.attributes,
+        força: Number(data.attributes?.força ?? prev.attributes.força ?? 0),
+        agilidade: Number(data.attributes?.agilidade ?? prev.attributes.agilidade ?? 0),
+        inteligência: Number(data.attributes?.inteligência ?? prev.attributes.inteligência ?? 0),
+        presença: Number(data.attributes?.presença ?? prev.attributes.presença ?? 0),
+        vigor: Number(data.attributes?.vigor ?? prev.attributes.vigor ?? 0),
       },
       skills: loadedSkills.length > 0 ? loadedSkills : prev.skills,
       pericias: loadedPericias.length > 0 ? loadedPericias : prev.pericias,
+      rituals: loadedRituals.length > 0 ? loadedRituals : prev.rituals,
+      ritualComponents:
+        loadedRitualComponents.length > 0 ? loadedRitualComponents : prev.ritualComponents,
       primaryWeapon: normalizeWeapon(data.primaryWeapon, prev.primaryWeapon),
       secondaryWeapon: normalizeWeapon(data.secondaryWeapon, prev.secondaryWeapon),
     }));
@@ -542,12 +899,12 @@ export default function CharacterSheet() {
         <div className="flex-shrink-0 w-full md:w-40">
           <h2 className="font-display text-xs md:text-sm text-primary uppercase mb-2 md:mb-3">Atributos</h2>
           <div className="grid grid-cols-3 md:grid-cols-2 gap-2 md:gap-3">
-            {Object.entries(character.attributes).map(([attr, value]) => (
+            {ATTRIBUTE_KEYS.map((attr) => (
               <AttributeHexagon
                 key={attr}
                 attribute={attr}
-                value={value}
-                onChange={(val) => handleAttributeChange(attr as keyof typeof character.attributes, val)}
+                value={character.attributes[attr]}
+                onChange={(val) => handleAttributeChange(attr, val)}
               />
             ))}
           </div>
@@ -595,7 +952,7 @@ export default function CharacterSheet() {
       {/* Inventory Panel - Retractable Sidebar */}
       <InventoryPanel
         isOpen={openSidebar === 'inventory'}
-        showToggle={openSidebar !== 'insanity'}
+        showToggle={openSidebar !== 'insanity' && openSidebar !== 'rituals'}
         onToggle={toggleInventoryPanel}
         inventory={character.inventory}
         onAddItem={handleAddInventoryItem}
@@ -612,7 +969,7 @@ export default function CharacterSheet() {
       {/* Insanity Panel - Second Retractable Sidebar */}
       <InsanityPanel
         isOpen={openSidebar === 'insanity'}
-        showToggle={openSidebar !== 'inventory'}
+        showToggle={openSidebar !== 'inventory' && openSidebar !== 'rituals'}
         onToggle={toggleInsanityPanel}
         insanities={character.insanities}
         paranormalPowers={character.paranormalPowers}
@@ -623,6 +980,102 @@ export default function CharacterSheet() {
         onPowerRemove={handleRemovePower}
         onPowerUpdate={handleUpdatePower}
       />
+
+      <RitualsPanel
+        isOpen={openSidebar === 'rituals'}
+        showToggle={openSidebar !== 'inventory' && openSidebar !== 'insanity'}
+        onToggle={toggleRitualsPanel}
+        rituals={character.rituals}
+        components={character.ritualComponents}
+        onAddRitual={handleAddRitual}
+        onUpdateRitual={handleUpdateRitual}
+        ritualConjureState={ritualConjureState}
+        onChooseRitualSymbol={handleChooseRitualSymbol}
+        onSetRitualVersion={handleSetRitualVersion}
+        onContinueRitual={handleContinueRitual}
+        onContinueWithoutComponents={handleContinueWithoutComponents}
+        onCancelConjure={handleCancelConjure}
+        onResolveRitual={handleResolveRitual}
+        onRemoveRitual={handleRemoveRitual}
+        onConjureRitual={handleConjureRitual}
+      />
+
+      {/* Resolve Ritual Modal */}
+      {ritualResolveState && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl border-2 border-cyan-500 bg-black p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-lg text-cyan-300 uppercase">Resolver Ritual</h3>
+              <button onClick={handleCloseResolve} className="text-xs text-cyan-300 border border-cyan-500 px-2 py-1">Fechar</button>
+            </div>
+
+            {!ritualResolveState.rolls || ritualResolveState.isRolling === undefined ? (
+              <div className="space-y-2">
+                <div className="text-xs text-cyan-200">Escolha atributo</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {ATTRIBUTE_KEYS.map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => setRitualResolveState((prev) => (prev ? { ...prev, selectedAttribute: key } : prev))}
+                      className={`py-2 text-xs uppercase border ${ritualResolveState.selectedAttribute === key ? 'bg-cyan-500 text-black' : 'text-cyan-300 border-cyan-500'}`}
+                    >
+                      {ATTRIBUTE_LABELS[key]}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <div className="text-xs text-cyan-200">Escolha pericia</div>
+                  <select
+                    value={ritualResolveState.selectedPericiaId ?? ''}
+                    onChange={(e) => setRitualResolveState((prev) => (prev ? { ...prev, selectedPericiaId: e.target.value } : prev))}
+                    className="w-full bg-black border border-cyan-500 p-2 text-cyan-200"
+                  >
+                    <option value="">(usar primeira)</option>
+                    {character.pericias.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handlePerformResolveRoll}
+                    className="flex-1 bg-cyan-500 text-black py-2 uppercase font-bold"
+                  >
+                    Rolar
+                  </button>
+                  <button onClick={handleCloseResolve} className="flex-1 border border-cyan-500 text-cyan-300 py-2 uppercase">Cancelar</button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-xs text-cyan-200 uppercase">Resultado</div>
+                <div className="flex gap-3">
+                  <div className="h-16 w-16 border-2 border-blue-500 flex items-center justify-center text-2xl font-bold">{ritualResolveState.rolls?.[0]}</div>
+                  <div className="h-16 w-16 border-2 border-purple-600 flex items-center justify-center text-2xl font-bold">{ritualResolveState.rolls?.[1]}</div>
+                  <div className="flex-1 border-2 border-red-500 p-3">
+                    <div className="text-sm font-bold text-cyan-200">Total: {ritualResolveState.total}</div>
+                    <div className={`mt-1 text-xs font-bold ${ritualResolveState.passed ? 'text-green-400' : 'text-red-400'}`}>{ritualResolveState.passed ? 'Sucesso' : 'Falha'}</div>
+                    <div className="text-[10px] text-cyan-300 mt-2">Dificuldade: {ritualResolveState.difficulty}</div>
+                  </div>
+                </div>
+
+                <div className="border border-cyan-500 p-3">
+                  <div className="text-xs text-cyan-200 uppercase font-bold">Efeito do Ritual</div>
+                  <div className="mt-2 text-sm text-cyan-100">{(character.rituals.find((r) => r.id === ritualResolveState.ritualId)?.versions[0]?.description) || 'Descrição do ritual'}</div>
+                  <div className="mt-2 text-[10px] text-cyan-300">Símbolo: {ritualConjureState?.selectedSymbol?.simbolo ?? 'Nenhum'}</div>
+                  <div className="mt-1 text-[10px] text-cyan-300">Componentes: Nenhum selecionado</div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={handleCloseResolve} className="flex-1 bg-cyan-500 text-black py-2 uppercase font-bold">Fechar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

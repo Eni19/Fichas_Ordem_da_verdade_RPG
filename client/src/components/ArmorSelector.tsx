@@ -5,20 +5,12 @@ interface ArmorSelectorProps {
   onEvasionChange: (value: number) => void;
 }
 
-const MAX_ARMOR = 12;
-
 export default function ArmorSelector({
   armorValue,
   onArmorChange,
   evasion,
   onEvasionChange,
 }: ArmorSelectorProps) {
-  const handleArmorClick = (index: number) => {
-    // Clicando no quadrado: se já está preenchido até ali, limpa; senão, preenche até ali
-    const newValue = armorValue === index + 1 ? index : index + 1;
-    onArmorChange(newValue);
-  };
-
   return (
     <div className="card-occult h-full space-y-3">
       <div className="space-y-2">
@@ -39,36 +31,15 @@ export default function ArmorSelector({
         <div className="space-y-1">
           <label className="font-display text-sm text-primary uppercase block">Armadura</label>
           <div className="bg-black border border-primary p-2 space-y-2">
-            {/* Armor Value Display */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="font-display text-sm text-primary uppercase">Valor</span>
-              <span
+              <input
+                type="number"
+                value={armorValue}
+                onChange={(e) => onArmorChange(parseInt(e.target.value) || 0)}
                 style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-                className="text-primary text-base"
-              >
-                {armorValue}
-              </span>
-            </div>
-
-            {/* Armor Squares Grid */}
-            <div className="grid grid-cols-6 gap-1">
-              {Array.from({ length: MAX_ARMOR }).map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleArmorClick(index)}
-                  className={`w-6 h-6 border-2 transition-all duration-200 flex items-center justify-center text-xs ${
-                    index < armorValue
-                      ? 'bg-primary border-primary text-black'
-                      : 'bg-black border-primary text-primary hover:bg-primary hover:bg-opacity-20'
-                  }`}
-                  style={{
-                    fontWeight: 700,
-                    fontFamily: "'Roboto Mono', monospace",
-                  }}
-                >
-                  {index + 1}
-                </button>
-              ))}
+                className="w-24 h-10 bg-input border border-primary text-primary text-center focus:outline-none focus:ring-1 focus:ring-primary text-lg p-0.5"
+              />
             </div>
           </div>
         </div>
