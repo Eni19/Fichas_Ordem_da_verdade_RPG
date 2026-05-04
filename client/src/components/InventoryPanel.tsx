@@ -1,7 +1,14 @@
 import { ChevronLeft, ChevronRight, Trash2, Plus, Dice6 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import WeaponsList from '@/components/WeaponsList';
 
 interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface WeaponTag {
   id: string;
   name: string;
   description: string;
@@ -10,12 +17,17 @@ interface InventoryItem {
 interface Weapon {
   id: string;
   name: string;
-  traits: string;
-  damageDie: number;
-  hasDamageBonus: boolean;
-  damageBonus: number;
-  proficiency: number;
-  feature: string;
+  category: string;
+  damageDiceCount: number;
+  damageDiceSides: number;
+  criticalThreshold: number;
+  criticalMultiplier: number;
+  skill: string;
+  attribute: string;
+  hasExtraEffect: boolean;
+  extraEffect?: string;
+  isActive?: boolean;
+  tags: WeaponTag[];
 }
 
 interface InventoryPanelProps {
@@ -26,12 +38,13 @@ interface InventoryPanelProps {
   onAddItem: () => void;
   onUpdateItem: (id: string, field: keyof InventoryItem, value: string) => void;
   onDeleteItem: (id: string) => void;
-  primaryWeapon: Weapon;
-  onUpdatePrimaryWeapon: (field: keyof Weapon, value: string | number | boolean) => void;
-  secondaryWeapon: Weapon;
-  onUpdateSecondaryWeapon: (field: keyof Weapon, value: string | number | boolean) => void;
-  onRollPrimaryDamage: () => void;
-  onRollSecondaryDamage: () => void;
+  weapons: Weapon[];
+  onUpdateWeapon: (weaponId: string, field: keyof Weapon, value: any) => void;
+  onAddWeapon: () => void;
+  onDeleteWeapon: (weaponId: string) => void;
+  onToggleWeaponActive: (weaponId: string) => void;
+  onRollWeaponTest: (weapon: Weapon) => void;
+  onRollWeaponDamage: (weapon: Weapon) => void;
 }
 
 export default function InventoryPanel({
@@ -42,12 +55,13 @@ export default function InventoryPanel({
   onAddItem,
   onUpdateItem,
   onDeleteItem,
-  primaryWeapon,
-  onUpdatePrimaryWeapon,
-  secondaryWeapon,
-  onUpdateSecondaryWeapon,
-  onRollPrimaryDamage,
-  onRollSecondaryDamage,
+  weapons,
+  onUpdateWeapon,
+  onAddWeapon,
+  onDeleteWeapon,
+  onToggleWeaponActive,
+  onRollWeaponTest,
+  onRollWeaponDamage,
 }: InventoryPanelProps) {
   const autoResizeTextarea = (target: HTMLTextAreaElement) => {
     target.style.height = 'auto';
@@ -85,154 +99,16 @@ export default function InventoryPanel({
       {isOpen && (
         <ScrollArea className="flex-1 overflow-hidden">
           <div className="p-4 space-y-4 pr-4">
-            {/* Active Weapons Section */}
-            <div className="space-y-2">
-              <h3 className="font-display text-base text-primary uppercase">Equipamentos</h3>
-
-              {/* Primary Weapon */}
-              <div className="border border-primary bg-black p-2.5 space-y-1.5">
-                <div className="font-display text-sm text-primary uppercase">Primária</div>
-                <input
-                  type="text"
-                  value={primaryWeapon.name}
-                  onChange={(e) => onUpdatePrimaryWeapon('name', e.target.value)}
-                  className="w-full bg-transparent border-b border-primary text-primary text-sm focus:outline-none focus:ring-0 uppercase py-0.5"
-                  placeholder="Nome"
-                />
-                <div className="flex gap-1 items-center">
-                  <label className="font-display text-sm text-primary uppercase flex-shrink-0">Prof:</label>
-                  <input
-                    type="number"
-                    value={primaryWeapon.proficiency}
-                    onChange={(e) => onUpdatePrimaryWeapon('proficiency', parseInt(e.target.value) || 0)}
-                    style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-                    className="w-12 h-8 bg-input border border-primary text-primary text-center focus:outline-none focus:ring-1 focus:ring-primary text-sm p-0.5"
-                    min="0"
-                  />
-                </div>
-                <div className="flex gap-1 items-center">
-                  <label className="font-display text-sm text-primary uppercase flex-shrink-0">Dado:</label>
-                  <input
-                    type="number"
-                    value={primaryWeapon.damageDie}
-                    onChange={(e) => onUpdatePrimaryWeapon('damageDie', parseInt(e.target.value))}
-                    className="flex-1 bg-input border border-primary text-primary text-sm p-1 focus:outline-none"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-1 text-sm text-primary">
-                    <input
-                      type="checkbox"
-                      checked={primaryWeapon.hasDamageBonus}
-                      onChange={(e) => onUpdatePrimaryWeapon('hasDamageBonus', e.target.checked)}
-                      className="accent-red-600"
-                    />
-                    Somar
-                  </label>
-                  <input
-                    type="number"
-                    value={primaryWeapon.damageBonus}
-                    onChange={(e) => onUpdatePrimaryWeapon('damageBonus', parseInt(e.target.value) || 0)}
-                    disabled={!primaryWeapon.hasDamageBonus}
-                    className="w-14 h-8 bg-input border border-primary text-primary text-center focus:outline-none focus:ring-1 focus:ring-primary text-sm p-0.5 disabled:opacity-50"
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={primaryWeapon.traits}
-                  onChange={(e) => onUpdatePrimaryWeapon('traits', e.target.value)}
-                  className="w-full bg-transparent border-b border-primary text-primary text-sm focus:outline-none focus:ring-0 py-0.5"
-                  placeholder="Traits & Range"
-                />
-                <textarea
-                  value={primaryWeapon.feature}
-                  onChange={(e) => onUpdatePrimaryWeapon('feature', e.target.value)}
-                  onInput={(e) => autoResizeTextarea(e.currentTarget)}
-                  className="w-full bg-transparent border border-primary text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary py-1 px-1 resize-none overflow-hidden"
-                  placeholder="Feature"
-                  rows={1}
-                />
-                <button
-                  onClick={() => handleRollAndClose(onRollPrimaryDamage)}
-                  className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase border border-red-500 transition-all text-xs"
-                >
-                  <Dice6 className="inline mr-1" size={14} />
-                  Rolar Dano
-                </button>
-              </div>
-
-              {/* Secondary Weapon */}
-              <div className="border border-primary bg-black p-2.5 space-y-1.5">
-                <div className="font-display text-sm text-primary uppercase">Secundária</div>
-                <input
-                  type="text"
-                  value={secondaryWeapon.name}
-                  onChange={(e) => onUpdateSecondaryWeapon('name', e.target.value)}
-                  className="w-full bg-transparent border-b border-primary text-primary text-sm focus:outline-none focus:ring-0 uppercase py-0.5"
-                  placeholder="Nome"
-                />
-                <div className="flex gap-1 items-center">
-                  <label className="font-display text-sm text-primary uppercase flex-shrink-0">Prof:</label>
-                  <input
-                    type="number"
-                    value={secondaryWeapon.proficiency}
-                    onChange={(e) => onUpdateSecondaryWeapon('proficiency', parseInt(e.target.value) || 0)}
-                    style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-                    className="w-12 h-8 bg-input border border-primary text-primary text-center focus:outline-none focus:ring-1 focus:ring-primary text-sm p-0.5"
-                    min="0"
-                  />
-                </div>
-                <div className="flex gap-1 items-center">
-                  <label className="font-display text-sm text-primary uppercase flex-shrink-0">Dado:</label>
-                  <input
-                    type="number"
-                    value={secondaryWeapon.damageDie}
-                    onChange={(e) => onUpdateSecondaryWeapon('damageDie', parseInt(e.target.value))}
-                    className="flex-1 bg-input border border-primary text-primary text-sm p-1 focus:outline-none"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-1 text-sm text-primary">
-                    <input
-                      type="checkbox"
-                      checked={secondaryWeapon.hasDamageBonus}
-                      onChange={(e) => onUpdateSecondaryWeapon('hasDamageBonus', e.target.checked)}
-                      className="accent-red-600"
-                    />
-                    Somar
-                  </label>
-                  <input
-                    type="number"
-                    value={secondaryWeapon.damageBonus}
-                    onChange={(e) => onUpdateSecondaryWeapon('damageBonus', parseInt(e.target.value) || 0)}
-                    disabled={!secondaryWeapon.hasDamageBonus}
-                    className="w-14 h-8 bg-input border border-primary text-primary text-center focus:outline-none focus:ring-1 focus:ring-primary text-sm p-0.5 disabled:opacity-50"
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={secondaryWeapon.traits}
-                  onChange={(e) => onUpdateSecondaryWeapon('traits', e.target.value)}
-                  className="w-full bg-transparent border-b border-primary text-primary text-sm focus:outline-none focus:ring-0 py-0.5"
-                  placeholder="Traits & Range"
-                />
-                <textarea
-                  value={secondaryWeapon.feature}
-                  onChange={(e) => onUpdateSecondaryWeapon('feature', e.target.value)}
-                  onInput={(e) => autoResizeTextarea(e.currentTarget)}
-                  className="w-full bg-transparent border border-primary text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary py-1 px-1 resize-none overflow-hidden"
-                  placeholder="Feature"
-                  rows={1}
-                />
-                <button
-                  onClick={() => handleRollAndClose(onRollSecondaryDamage)}
-                  className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase border border-red-500 transition-all text-xs"
-                >
-                  <Dice6 className="inline mr-1" size={14} />
-                  Rolar Dano
-                </button>
-              </div>
-            </div>
+            {/* Weapons List Section */}
+            <WeaponsList
+              weapons={weapons}
+              onUpdateWeapon={onUpdateWeapon}
+              onAddWeapon={onAddWeapon}
+              onDeleteWeapon={onDeleteWeapon}
+              onToggleActive={onToggleWeaponActive}
+              onRollWeaponTest={onRollWeaponTest}
+              onRollWeaponDamage={onRollWeaponDamage}
+            />
 
             {/* Inventory Section */}
             <div className="space-y-2">

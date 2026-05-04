@@ -4,9 +4,7 @@ import SkillsList from '@/components/SkillsList';
 import DiceRoller from '@/components/DiceRoller';
 import VitalStats from '@/components/VitalStats';
 import Pericias from '@/components/Pericias';
-import DamageThresholds from '@/components/DamageThresholds';
 import HopeCounter from '@/components/HopeCounter';
-import ArmorSelector from '@/components/ArmorSelector';
 import InventoryPanel from '@/components/InventoryPanel';
 import InsanityPanel from '@/components/InsanityPanel';
 import RitualsPanel from '@/components/RitualsPanel';
@@ -18,7 +16,7 @@ import symbols, { type RitualSymbol } from '@/data/symbols';
  * 
  * Estrutura:
  * - Topo: Nome do personagem
- * - Abaixo do nome: Thresholds em linha + Vitals + Hope Counter + Armor/Evasion
+ * - Abaixo do nome: Vitals + Hope Counter
  * - Coluna esquerda: Atributos em hexágonos vermelhos
  * - Centro: Habilidades com scroll fixo, Expertises abaixo com scroll
  * - Direita: Rolagem de dados + Menu retrátil (Inventário/Equipamentos)
@@ -39,13 +37,13 @@ interface Pericia {
   training: 'treinado' | 'veterano' | 'expert';
 }
 
-interface DamageThreshold {
-  minor: number;
-  major: number;
-  severe: number;
+interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
 }
 
-interface InventoryItem {
+interface WeaponTag {
   id: string;
   name: string;
   description: string;
@@ -54,12 +52,17 @@ interface InventoryItem {
 interface Weapon {
   id: string;
   name: string;
-  traits: string;
-  damageDie: number;
-  hasDamageBonus: boolean;
-  damageBonus: number;
-  proficiency: number;
-  feature: string;
+  category: string;
+  damageDiceCount: number;
+  damageDiceSides: number;
+  criticalThreshold: number;
+  criticalMultiplier: number;
+  skill: string;
+  attribute: string;
+  hasExtraEffect: boolean;
+  extraEffect?: string;
+  isActive?: boolean;
+  tags: WeaponTag[];
 }
 
 interface DamageRollRequest {
@@ -140,13 +143,9 @@ interface CharacterData {
   pericias: Pericia[];
   hp: { current: number; max: number };
   sanity: { current: number; max: number };
-  damageThresholds: DamageThreshold;
   hope: number;
-  armor: number;
-  evasion: number;
   inventory: InventoryItem[];
-  primaryWeapon: Weapon;
-  secondaryWeapon: Weapon;
+  weapons: Weapon[];
   insanities: Insanity[];
   paranormalPowers: ParanormalPower[];
   rituals: Ritual[];
@@ -190,6 +189,12 @@ const TRAINING_LABELS: Record<Pericia['training'], string> = {
   expert: 'Expert',
 };
 
+const SKILL_DICE: Record<string, number> = {
+  'Luta': 6,
+  'Pontaria': 8,
+  'Ocultismo': 10,
+};
+
 export default function CharacterSheet() {
   const [pendingRoll, setPendingRoll] = useState<SkillRollRequest | null>(null);
   const [pendingDamageRoll, setPendingDamageRoll] = useState<DamageRollRequest | null>(null);
@@ -224,31 +229,25 @@ export default function CharacterSheet() {
     ],
     hp: { current: 20, max: 20 },
     sanity: { current: 10, max: 10 },
-    damageThresholds: { minor: 7, major: 14, severe: 21 },
     hope: 3,
-    armor: 0,
-    evasion: 0,
     inventory: [],
-    primaryWeapon: {
-      id: '1',
-      name: '',
-      traits: '',
-      damageDie: 6,
-      hasDamageBonus: false,
-      damageBonus: 0,
-      proficiency: 0,
-      feature: '',
-    },
-    secondaryWeapon: {
-      id: '2',
-      name: '',
-      traits: '',
-      damageDie: 6,
-      hasDamageBonus: false,
-      damageBonus: 0,
-      proficiency: 0,
-      feature: '',
-    },
+    weapons: [
+      {
+        id: '1',
+        name: 'Arma 1',
+        category: '',
+        damageDiceCount: 1,
+        damageDiceSides: 6,
+        criticalThreshold: 18,
+        criticalMultiplier: 2,
+        skill: '',
+        attribute: '',
+        hasExtraEffect: false,
+        extraEffect: '',
+        isActive: true,
+        tags: [],
+      },
+    ],
     insanities: [],
     paranormalPowers: [],
     rituals: [],
@@ -356,6 +355,25 @@ export default function CharacterSheet() {
     });
   };
 
+  const handleRollWeaponTest = (weapon: Weapon) => {
+    if (!weapon.attribute || !weapon.skill) return;
+
+    const attributeValue = character.attributes[weapon.attribute as keyof CharacterData['attributes']] || 0;
+    const normalizedAttribute = Math.max(0, Math.min(5, attributeValue));
+    
+    // Find the training die for the weapon skill
+    const skillTrainingDie = SKILL_DICE[weapon.skill as keyof typeof SKILL_DICE] || 6;
+
+    setPendingRoll({
+      id: Date.now(),
+      periciaName: weapon.name || 'Arma sem nome',
+      attributeLabel: ATTRIBUTE_LABELS[weapon.attribute as keyof typeof ATTRIBUTE_LABELS] || weapon.attribute,
+      trainingLabel: `${weapon.skill} (1d${skillTrainingDie})`,
+      attributeValue: normalizedAttribute,
+      trainingDie: skillTrainingDie,
+    });
+  };
+
   const handleVitalChange = (type: 'hp' | 'sanity', field: 'current' | 'max', value: number): void => {
     setCharacter({
       ...character,
@@ -363,23 +381,8 @@ export default function CharacterSheet() {
     });
   };
 
-  const handleDamageThresholdChange = (field: keyof DamageThreshold, value: number) => {
-    setCharacter({
-      ...character,
-      damageThresholds: { ...character.damageThresholds, [field]: value },
-    });
-  };
-
   const handleHopeChange = (value: number) => {
     setCharacter({ ...character, hope: value });
-  };
-
-  const handleArmorChange = (value: number) => {
-    setCharacter({ ...character, armor: value });
-  };
-
-  const handleEvasionChange = (value: number) => {
-    setCharacter({ ...character, evasion: value });
   };
 
   const handleAddInventoryItem = () => {
@@ -407,30 +410,97 @@ export default function CharacterSheet() {
     });
   };
 
-  const handleUpdatePrimaryWeapon = (field: keyof Weapon, value: string | number | boolean) => {
+  const handleUpdateWeapon = (weaponId: string, field: keyof Weapon, value: any) => {
     setCharacter({
       ...character,
-      primaryWeapon: { ...character.primaryWeapon, [field]: value },
+      weapons: character.weapons.map((w) =>
+        w.id === weaponId ? { ...w, [field]: value } : w
+      ),
     });
   };
 
-  const handleUpdateSecondaryWeapon = (field: keyof Weapon, value: string | number | boolean) => {
+  const handleAddWeapon = () => {
+    const newWeapon: Weapon = {
+      id: Date.now().toString(),
+      name: 'Nova Arma',
+      category: '',
+      damageDiceCount: 1,
+      damageDiceSides: 6,
+      criticalThreshold: 18,
+      criticalMultiplier: 2,
+      skill: '',
+      attribute: '',
+      hasExtraEffect: false,
+      extraEffect: '',
+      isActive: false,
+      tags: [],
+    };
     setCharacter({
       ...character,
-      secondaryWeapon: { ...character.secondaryWeapon, [field]: value },
+      weapons: [...character.weapons, newWeapon],
     });
+  };
+
+  const handleDeleteWeapon = (weaponId: string) => {
+    setCharacter({
+      ...character,
+      weapons: character.weapons.filter((w) => w.id !== weaponId),
+    });
+  };
+
+  const handleToggleWeaponActive = (weaponId: string) => {
+    const weapon = character.weapons.find((w) => w.id === weaponId);
+    if (!weapon) return;
+
+    if (weapon.isActive) {
+      // Se está ativo, apenas desativa
+      setCharacter({
+        ...character,
+        weapons: character.weapons.map((w) =>
+          w.id === weaponId ? { ...w, isActive: false } : w
+        ),
+      });
+    } else {
+      // Se está inativo, ativa
+      const activeCount = character.weapons.filter((w) => w.isActive).length;
+
+      if (activeCount < 2) {
+        // Se tem menos de 2 ativas, ativa sem problemas
+        setCharacter({
+          ...character,
+          weapons: character.weapons.map((w) =>
+            w.id === weaponId ? { ...w, isActive: true } : w
+          ),
+        });
+      } else {
+        // Se já tem 2 ativas, desativa a primeira e ativa a nova
+        let firstActiveFound = false;
+        setCharacter({
+          ...character,
+          weapons: character.weapons.map((w) => {
+            if (w.id === weaponId) {
+              return { ...w, isActive: true };
+            }
+            if (w.isActive && !firstActiveFound) {
+              firstActiveFound = true;
+              return { ...w, isActive: false };
+            }
+            return w;
+          }),
+        });
+      }
+    }
   };
 
   const handleRollWeaponDamage = (weapon: Weapon) => {
-    const diceCount = Math.max(1, weapon.proficiency || 0);
-    const modifier = weapon.hasDamageBonus ? weapon.damageBonus : 0;
+    const diceCount = Math.max(1, weapon.damageDiceCount || 1);
 
     setPendingDamageRoll({
       id: Date.now(),
       weaponName: weapon.name || 'Arma sem nome',
       diceCount,
-      diceType: weapon.damageDie,
-      modifier,
+      diceType: weapon.damageDiceSides,
+      modifier: 0,
     });
   };
 
@@ -858,7 +928,7 @@ export default function CharacterSheet() {
           onLoadCharacter={handleLoadCharacter}
         />
 
-        {/* Vitals + Hope + Armor Row - Stack on mobile */}
+        {/* Vitals + Hope Row - Stack on mobile */}
         <div className="flex flex-col md:flex-row gap-2 md:gap-4">
           <div className="flex-1 min-w-0">
             <VitalStats
@@ -868,26 +938,10 @@ export default function CharacterSheet() {
               onSanityChange={(field, value) => handleVitalChange('sanity', field, value)}
             />
           </div>
-          <div className="w-full md:w-56 flex-shrink-0 space-y-2">
-            <div>
-              <HopeCounter
-                current={character.hope}
-                onChange={handleHopeChange}
-              />
-            </div>
-            <div>
-              <DamageThresholds
-                thresholds={character.damageThresholds}
-                onChange={handleDamageThresholdChange}
-              />
-            </div>
-          </div>
           <div className="w-full md:w-56 flex-shrink-0">
-            <ArmorSelector
-              armorValue={character.armor}
-              onArmorChange={handleArmorChange}
-              evasion={character.evasion}
-              onEvasionChange={handleEvasionChange}
+            <HopeCounter
+              current={character.hope}
+              onChange={handleHopeChange}
             />
           </div>
         </div>
@@ -958,12 +1012,13 @@ export default function CharacterSheet() {
         onAddItem={handleAddInventoryItem}
         onUpdateItem={handleUpdateInventoryItem}
         onDeleteItem={handleDeleteInventoryItem}
-        primaryWeapon={character.primaryWeapon}
-        onUpdatePrimaryWeapon={handleUpdatePrimaryWeapon}
-        secondaryWeapon={character.secondaryWeapon}
-        onUpdateSecondaryWeapon={handleUpdateSecondaryWeapon}
-        onRollPrimaryDamage={() => handleRollWeaponDamage(character.primaryWeapon)}
-        onRollSecondaryDamage={() => handleRollWeaponDamage(character.secondaryWeapon)}
+        weapons={character.weapons}
+        onUpdateWeapon={handleUpdateWeapon}
+        onAddWeapon={handleAddWeapon}
+        onDeleteWeapon={handleDeleteWeapon}
+        onToggleWeaponActive={handleToggleWeaponActive}
+        onRollWeaponTest={handleRollWeaponTest}
+        onRollWeaponDamage={handleRollWeaponDamage}
       />
 
       {/* Insanity Panel - Second Retractable Sidebar */}

@@ -45,6 +45,7 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
   const [customFormula, setCustomFormula] = useState('');
   const [displaySubtitle, setDisplaySubtitle] = useState<string | null>(null);
   const [displayModifier, setDisplayModifier] = useState(0);
+  const [isReRolling, setIsReRolling] = useState<'attribute' | 'training' | null>(null);
 
   const diceTypes = [4, 6, 8, 10, 12, 20];
   const maxDice = 10;
@@ -105,6 +106,85 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
       setDisplayMessage(null);
       setDisplayFlash(null);
     }
+  };
+
+  const reRollDice = (diceToReRoll: 'attribute' | 'training') => {
+    if (!rollRequest || isRolling) return;
+
+    setIsReRolling(diceToReRoll);
+
+    const animationDuration = 400;
+    const startTime = Date.now();
+
+    const animateRoll = () => {
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed < animationDuration) {
+        setDisplayRolls((prev) => {
+          const newRolls = [...prev];
+          const attributeConfig = getAttributeRollConfig(rollRequest.attributeValue);
+
+          if (diceToReRoll === 'attribute') {
+            newRolls[0] = Math.floor(Math.random() * attributeConfig.animationDie) + 1;
+          } else {
+            newRolls[1] = Math.floor(Math.random() * rollRequest.trainingDie) + 1;
+          }
+          return newRolls;
+        });
+        requestAnimationFrame(animateRoll);
+        return;
+      }
+
+      // Final roll
+      setDisplayRolls((prev) => {
+        const newRolls = [...prev];
+        
+        if (diceToReRoll === 'attribute') {
+          newRolls[0] = rollAttributeValue(rollRequest.attributeValue);
+        } else {
+          newRolls[1] = Math.floor(Math.random() * rollRequest.trainingDie) + 1;
+        }
+
+        // Recalculate outcome
+        triggerDisplayOutcome(newRolls[0], newRolls[1]);
+
+        // Update history with new result
+        const attributeConfig = getAttributeRollConfig(rollRequest.attributeValue);
+        let total = newRolls[0] + newRolls[1];
+        const finalRolls = [...newRolls];
+
+        if (advantageEnabled) {
+          total += newRolls[2];
+        }
+        if (disadvantageEnabled) {
+          total += newRolls[advantageEnabled ? 3 : 2];
+        }
+
+        const formulaParts = [attributeConfig.formula, `1d${rollRequest.trainingDie}`];
+        if (advantageEnabled) formulaParts.push('1d6');
+        if (disadvantageEnabled) formulaParts.push('-1d6');
+        const formula = formulaParts.join(' + ').replace('+ -', '- ');
+
+        const result: DiceResult = {
+          formula,
+          total,
+          rolls: finalRolls,
+          timestamp: new Date().toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }),
+        };
+
+        setHistory((prev) => [result, ...prev.slice(0, 4)]);
+
+        return newRolls;
+      });
+
+      setIsReRolling(null);
+    };
+
+    animateRoll();
   };
 
   const rollCustomDice = () => {
@@ -328,12 +408,20 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
         {displayMode === 'skill' ? (
           <>
             <div className="grid grid-cols-2 gap-2 mb-1">
-              <div className={`h-14 border-2 border-blue-500 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-blue-300' : 'text-blue-500'}`}>
+              <button
+                onClick={() => reRollDice('attribute')}
+                disabled={isRolling || isReRolling !== null}
+                className={`h-14 border-2 border-blue-500 bg-black flex items-center justify-center text-xl font-bold transition-all cursor-pointer hover:bg-blue-950/25 disabled:cursor-default ${isRolling || isReRolling === 'attribute' ? 'animate-pulse text-blue-300' : 'text-blue-500 hover:border-blue-400'}`}
+              >
                 {displayRolls[0] ?? '-'}
-              </div>
-              <div className={`h-14 border-2 border-purple-600 bg-black flex items-center justify-center text-xl font-bold ${isRolling ? 'animate-pulse text-purple-300' : 'text-purple-500'}`}>
+              </button>
+              <button
+                onClick={() => reRollDice('training')}
+                disabled={isRolling || isReRolling !== null}
+                className={`h-14 border-2 border-purple-600 bg-black flex items-center justify-center text-xl font-bold transition-all cursor-pointer hover:bg-purple-950/25 disabled:cursor-default ${isRolling || isReRolling === 'training' ? 'animate-pulse text-purple-300' : 'text-purple-500 hover:border-purple-400'}`}
+              >
                 {displayRolls[1] ?? '-'}
-              </div>
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-2 mb-3 text-[10px] uppercase tracking-wide font-bold">
               <div className="text-center text-blue-400">
@@ -378,6 +466,12 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
             }`}
           >
             {displayMessage}
+          </div>
+        )}
+
+        {displayMode === 'skill' && displayRolls[0] && !isRolling && (
+          <div className="mb-3 text-center text-[9px] text-gray-400 italic">
+            Clique em um dado para re-rolálo
           </div>
         )}
 
