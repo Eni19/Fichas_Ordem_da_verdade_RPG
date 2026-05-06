@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Trash2, Plus, Dice6 } from 'lucide-react';
+import { Trash2, Plus } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +38,7 @@ interface WeaponEditorProps {
   onUpdate: (field: keyof Weapon, value: any) => void;
   onDelete?: () => void;
   onRollTest?: () => void;
-  onRollDamage?: () => void;
+  onCloseMenu?: () => void;
 }
 
 export default function WeaponEditor({
@@ -45,12 +46,13 @@ export default function WeaponEditor({
   onUpdate,
   onDelete,
   onRollTest,
-  onRollDamage,
+  onCloseMenu,
 }: WeaponEditorProps) {
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagDescription, setNewTagDescription] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const handleAddTag = () => {
     if (!newTagName.trim()) return;
@@ -80,7 +82,13 @@ export default function WeaponEditor({
   };
 
   return (
-    <div className="border border-primary bg-black p-3 space-y-2">
+    <div
+      className={`border border-primary p-3 space-y-2 transition-all duration-300 ${
+        isRemoving
+          ? 'opacity-0 scale-95 max-h-0 overflow-hidden'
+          : 'opacity-100 scale-100 max-h-[5000px]'
+      } ${weapon.isActive ? 'bg-black/40 ring-1 ring-primary/20' : 'bg-black'}`}
+    >
       <div className="flex items-center gap-2 justify-between">
         <input
           type="text"
@@ -89,19 +97,17 @@ export default function WeaponEditor({
           className="flex-1 font-display text-sm text-primary uppercase bg-transparent border-b border-primary focus:outline-none focus:ring-0 py-0.5"
           placeholder="Nome da Arma"
         />
-        <button
-          onClick={() => onUpdate('isActive', !weapon.isActive)}
-          className={`px-2 py-1 text-xs font-bold uppercase border-2 transition-all ${
-            weapon.isActive
-              ? 'bg-primary border-primary text-black'
-              : 'border-primary text-primary hover:bg-primary hover:text-black'
-          }`}
-        >
-          {weapon.isActive ? '✓ Ativo' : 'Inativo'}
-        </button>
+        {weapon.isActive && (
+          <button
+            onClick={() => onUpdate('isActive', false)}
+            className="px-2 py-1 text-xs font-bold uppercase border-2 transition-all bg-primary border-primary text-black hover:bg-opacity-80"
+          >
+            ✓ Equipado
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <input
           type="text"
           value={weapon.category}
@@ -112,47 +118,41 @@ export default function WeaponEditor({
         <select
           value={weapon.skill}
           onChange={(e) => onUpdate('skill', e.target.value)}
-          className="bg-input border border-primary text-primary text-xs p-1 focus:outline-none focus:ring-1 focus:ring-primary"
+          className="bg-input border border-primary text-primary text-xs p-1 h-8 focus:outline-none focus:ring-1 focus:ring-primary"
         >
           <option value="">Perícia</option>
           <option value="Luta">Luta</option>
           <option value="Pontaria">Pontaria</option>
           <option value="Ocultismo">Ocultismo</option>
         </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
         <select
           value={weapon.attribute}
           onChange={(e) => onUpdate('attribute', e.target.value)}
-          className="bg-input border border-primary text-primary text-xs p-1 focus:outline-none focus:ring-1 focus:ring-primary"
+          className="bg-input border border-primary text-primary text-xs p-1 h-8 focus:outline-none focus:ring-1 focus:ring-primary"
         >
           <option value="">Atributo</option>
           {ATTRIBUTE_OPTIONS.map((attribute) => (
             <option key={attribute} value={attribute}>
-              {attribute}
+              {attribute.charAt(0).toUpperCase() + attribute.slice(1)}
             </option>
           ))}
         </select>
-        <div className="flex items-center justify-end">
-          <label className="text-xs text-primary font-bold">Dano:</label>
-        </div>
       </div>
 
       <div className="border border-primary bg-black p-2 flex items-center gap-1">
-        <label className="text-xs text-primary font-bold flex-shrink-0">d</label>
         <input
           type="number"
+          aria-label="Quantidade de dados"
           value={weapon.damageDiceCount}
           onChange={(e) => onUpdate('damageDiceCount', Math.max(1, parseInt(e.target.value) || 1))}
-          className="w-8 flex-shrink-0 bg-input border border-primary text-primary text-xs p-0.5 focus:outline-none focus:ring-1 focus:ring-primary text-center"
+          className="w-12 flex-shrink-0 bg-input border border-primary text-primary text-xs p-1 h-8 focus:outline-none focus:ring-1 focus:ring-primary text-center"
           min="1"
           max="10"
         />
         <select
           value={weapon.damageDiceSides}
           onChange={(e) => onUpdate('damageDiceSides', parseInt(e.target.value) || 6)}
-          className="flex-1 bg-input border border-primary text-primary text-[10px] p-0.5 focus:outline-none focus:ring-1 focus:ring-primary"
+          className="flex-1 bg-input border border-primary text-primary text-[10px] p-1 h-8 focus:outline-none focus:ring-1 focus:ring-primary"
         >
           <option value="4">d4</option>
           <option value="6">d6</option>
@@ -163,8 +163,8 @@ export default function WeaponEditor({
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
           <label className="text-[10px] text-primary font-bold flex-shrink-0">Crítico:</label>
           <input
             type="number"
@@ -175,28 +175,26 @@ export default function WeaponEditor({
             max="20"
           />
         </div>
-        <div className="flex items-center gap-0.5">
-          <label className="text-[10px] text-primary font-bold flex-shrink-0">x</label>
+
+        <div className="flex items-center gap-2 ml-auto">
+          <label className="text-[10px] text-primary font-bold">x</label>
           <input
             type="number"
             value={weapon.criticalMultiplier}
             onChange={(e) => onUpdate('criticalMultiplier', parseInt(e.target.value) || 2)}
-            className="w-6 bg-input border border-primary text-primary text-[10px] p-0.5 focus:outline-none focus:ring-1 focus:ring-primary text-center"
+            className="w-12 bg-input border border-primary text-primary text-[10px] p-0.5 focus:outline-none focus:ring-1 focus:ring-primary text-center"
             min="1"
           />
-        </div>
-      </div>
 
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1 text-xs text-primary">
-          <input
-            type="checkbox"
-            checked={weapon.hasExtraEffect}
-            onChange={(e) => onUpdate('hasExtraEffect', e.target.checked)}
-            className="accent-red-600"
-          />
-          Efeito Extra
-        </label>
+          <label className="flex items-center gap-2 text-xs text-primary ml-2">
+            <Checkbox
+              checked={weapon.hasExtraEffect}
+              onCheckedChange={(v) => onUpdate('hasExtraEffect', !!v)}
+              className="border-primary"
+            />
+            <span className="text-xs">Efeito Extra</span>
+          </label>
+        </div>
       </div>
 
       {weapon.hasExtraEffect && (
@@ -315,26 +313,28 @@ export default function WeaponEditor({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-primary">
+      <div className="w-full pt-2 border-t border-primary">
         <button
-          onClick={onRollTest}
-          className="py-2 bg-primary hover:bg-opacity-80 text-black font-bold uppercase border border-primary transition-all text-xs"
+          onClick={() => {
+            onRollTest?.();
+            onCloseMenu?.();
+          }}
+          className="w-full py-2 bg-primary hover:bg-opacity-80 text-black font-bold uppercase border border-primary transition-all text-xs"
         >
-          <Dice6 className="inline mr-1" size={12} />
-          Teste
-        </button>
-        <button
-          onClick={onRollDamage}
-          className="py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase border border-red-500 transition-all text-xs"
-        >
-          <Dice6 className="inline mr-1" size={12} />
-          Dano
+          Atacar
         </button>
       </div>
 
       {onDelete && (
         <button
-          onClick={onDelete}
+          onClick={() => {
+            if (confirm('Tem certeza que deseja remover esta arma? Esta ação não pode ser desfeita.')) {
+              setIsRemoving(true);
+              setTimeout(() => {
+                onDelete?.();
+              }, 300);
+            }
+          }}
           className="w-full py-2 bg-black border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold uppercase transition-all text-xs"
         >
           <Trash2 className="inline mr-1" size={12} />

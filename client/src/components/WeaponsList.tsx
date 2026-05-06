@@ -31,7 +31,7 @@ interface WeaponsListProps {
   onDeleteWeapon: (weaponId: string) => void;
   onToggleActive: (weaponId: string) => void;
   onRollWeaponTest: (weapon: Weapon) => void;
-  onRollWeaponDamage: (weapon: Weapon) => void;
+  onCloseMenu?: () => void;
 }
 
 export default function WeaponsList({
@@ -41,7 +41,7 @@ export default function WeaponsList({
   onDeleteWeapon,
   onToggleActive,
   onRollWeaponTest,
-  onRollWeaponDamage,
+  onCloseMenu,
 }: WeaponsListProps) {
   const [expandedInactive, setExpandedInactive] = useState<string | null>(null);
 
@@ -71,14 +71,18 @@ export default function WeaponsList({
             Equipadas ({activeWeapons.length}/2)
           </div>
           {activeWeapons.map((weapon) => (
-            <WeaponEditor
+            <div
               key={weapon.id}
-              weapon={weapon}
-              onUpdate={(field, value) => onUpdateWeapon(weapon.id, field, value)}
-              onDelete={() => onDeleteWeapon(weapon.id)}
-              onRollTest={() => onRollWeaponTest(weapon)}
-              onRollDamage={() => onRollWeaponDamage(weapon)}
-            />
+              className="animate-in fade-in-50 slide-in-from-top-2 duration-300"
+            >
+              <WeaponEditor
+                weapon={weapon}
+                onUpdate={(field, value) => onUpdateWeapon(weapon.id, field, value)}
+                onDelete={() => onDeleteWeapon(weapon.id)}
+                onRollTest={() => onRollWeaponTest(weapon)}
+                onCloseMenu={onCloseMenu}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -91,7 +95,7 @@ export default function WeaponsList({
           </div>
           <div className="space-y-1">
             {inactiveWeapons.map((weapon) => (
-              <div key={weapon.id}>
+              <div key={weapon.id} className="animate-in fade-in-50 slide-in-from-top-2 duration-300">
                 {/* Minimized View */}
                 <div className="bg-black border border-primary bg-opacity-50 p-2 flex items-center justify-between hover:bg-opacity-75 transition-all">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -99,12 +103,12 @@ export default function WeaponsList({
                       onClick={() =>
                         setExpandedInactive(expandedInactive === weapon.id ? null : weapon.id)
                       }
-                      className="text-primary hover:text-red-500 flex-shrink-0"
+                      className="text-primary hover:text-red-500 flex-shrink-0 transition-transform duration-300"
                     >
                       {expandedInactive === weapon.id ? (
-                        <ChevronUp size={14} />
+                        <ChevronUp size={14} className="transition-transform" />
                       ) : (
-                        <ChevronDown size={14} />
+                        <ChevronDown size={14} className="transition-transform" />
                       )}
                     </button>
                     <span className="text-primary text-xs font-bold uppercase truncate">
@@ -119,9 +123,9 @@ export default function WeaponsList({
                   <button
                     onClick={() => onToggleActive(weapon.id)}
                     disabled={!canActivateMore && !weapon.isActive}
-                    className={`px-2 py-1 text-xs font-bold uppercase border transition-all flex-shrink-0 ${
+                    className={`px-2 py-1 text-xs font-bold uppercase border transition-all duration-300 flex-shrink-0 ${
                       canActivateMore || weapon.isActive
-                        ? 'border-primary text-primary hover:bg-primary hover:text-black'
+                        ? 'border-primary text-primary hover:bg-primary hover:text-black hover:scale-105'
                         : 'border-gray-600 text-gray-600 cursor-not-allowed opacity-50'
                     }`}
                   >
@@ -130,17 +134,23 @@ export default function WeaponsList({
                 </div>
 
                 {/* Expanded Minimized View */}
-                {expandedInactive === weapon.id && (
+                <div
+                  className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                    expandedInactive === weapon.id
+                      ? 'max-h-[1500px] opacity-100'
+                      : 'max-h-0 opacity-0 pointer-events-none'
+                  }`}
+                >
                   <div className="bg-black border-l-2 border-r-2 border-b-2 border-primary bg-opacity-30 p-2 space-y-2">
                     <WeaponEditor
                       weapon={weapon}
                       onUpdate={(field, value) => onUpdateWeapon(weapon.id, field, value)}
                       onDelete={() => onDeleteWeapon(weapon.id)}
                       onRollTest={() => onRollWeaponTest(weapon)}
-                      onRollDamage={() => onRollWeaponDamage(weapon)}
+                      onCloseMenu={onCloseMenu}
                     />
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { RitualSymbol } from '@/data/symbols';
 
@@ -111,6 +111,12 @@ export default function RitualsPanel({
   };
 
   const [revealed, setRevealed] = useState<boolean[]>([false, false, false]);
+  const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
+  const [removingRitualIds, setRemovingRitualIds] = useState<Record<string, boolean>>({});
+
+  const toggleCollapse = (id: string) => {
+    setCollapsedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   useEffect(() => {
     // When a new conjure modal opens with no selected symbol, reveal cards one by one
@@ -137,6 +143,15 @@ export default function RitualsPanel({
       timeouts.forEach((t) => clearTimeout(t));
     };
   }, [ritualConjureState]);
+
+  useEffect(() => {
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>('[data-ritual-effect-textarea="true"]');
+
+    textareas.forEach((textarea) => {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    });
+  }, [collapsedIds, rituals]);
 
   const addRitual = () => {
     if (!newRitual.name.trim()) return;
@@ -302,48 +317,88 @@ export default function RitualsPanel({
                 <div className="space-y-3 mb-4">
                   {rituals.map((ritual) => {
                     const version = getActiveVersion(ritual);
+                    const isCollapsed = Boolean(collapsedIds[ritual.id]);
+                    const ritualTypeLabel =
+                      version.type === 'dano' ? 'Dano' : version.type === 'aflicao' ? 'Aflição' : 'Utilidade';
 
                     return (
-                      <div key={ritual.id} className="bg-black border-2 border-cyan-500 p-2 space-y-2">
-                        <div>
-                          <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Nome</label>
-                          <div className="flex items-start gap-2">
-                            <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                              <button
-                                onClick={() => goToPreviousVersion(ritual)}
-                                disabled={ritual.activeVersion === 0}
-                                className="h-6 w-6 border border-cyan-500 text-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-cyan-500 hover:text-black transition-colors flex items-center justify-center"
-                                aria-label="Versão anterior"
-                              >
-                                <ChevronLeft size={12} />
-                              </button>
-                              <span className="text-[10px] text-cyan-300 uppercase font-bold min-w-12 text-center">
-                                {ritual.activeVersion + 1}/3
-                              </span>
-                              <button
-                                onClick={() => goToNextVersion(ritual)}
-                                disabled={ritual.activeVersion === 2 && ritual.versions.length >= 3}
-                                className="h-6 w-6 border border-cyan-500 text-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-cyan-500 hover:text-black transition-colors flex items-center justify-center"
-                                aria-label="Versão seguinte"
-                              >
-                                <ChevronRight size={12} />
-                              </button>
+                      <div
+                        key={ritual.id}
+                        className={`bg-black border-2 border-cyan-500 overflow-hidden max-w-full transition-all duration-300 ease-in-out ${
+                          removingRitualIds[ritual.id]
+                            ? 'opacity-0 scale-95 max-h-0'
+                            : 'opacity-100 scale-100 max-h-[5000px]'
+                        }`}
+                      >
+                        <div
+                          className={`flex items-center justify-between gap-3 p-2 max-w-full ${isCollapsed ? 'cursor-pointer' : ''}`}
+                          onClick={isCollapsed ? () => toggleCollapse(ritual.id) : undefined}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className={`${isCollapsed ? 'text-sm md:text-base' : 'text-[10px]'} text-cyan-400 uppercase font-bold`}>Ritual</div>
+                            {isCollapsed ? (
+                              <div className="text-lg md:text-xl text-cyan-200 font-bold uppercase truncate">
+                                {version.name || 'Ritual sem nome'}
+                              </div>
+                            ) : (
+                              <input
+                                type="text"
+                                value={version.name}
+                                onChange={(e) =>
+                                  onUpdateRitual(
+                                    ritual.id,
+                                    updateActiveVersion(ritual, { name: e.target.value })
+                                  )
+                                }
+                                className="w-full min-w-0 max-w-full bg-black text-cyan-200 text-sm md:text-base font-bold border-b border-cyan-500 outline-none uppercase"
+                                placeholder="Nome do Ritual"
+                              />
+                            )}
+                            <div className="text-[10px] text-cyan-300 uppercase font-bold">
+                              {ritualTypeLabel}
                             </div>
-                            <input
-                              type="text"
-                              value={version.name}
-                              onChange={(e) =>
-                                onUpdateRitual(
-                                  ritual.id,
-                                  updateActiveVersion(ritual, { name: e.target.value })
-                                )
-                              }
-                              className="bg-black text-cyan-200 text-sm font-bold border-b border-cyan-500 outline-none flex-1 uppercase"
-                              placeholder="Nome do Ritual"
-                            />
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <button
-                              onClick={() => onRemoveRitual(ritual.id)}
-                              className="text-cyan-400 hover:text-cyan-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleCollapse(ritual.id);
+                              }}
+                              className="h-7 w-7 border border-cyan-500 text-cyan-300 hover:bg-cyan-500 hover:text-black transition-colors flex items-center justify-center"
+                              aria-label={isCollapsed ? 'Expandir ritual' : 'Minimizar ritual'}
+                            >
+                              {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                            </button>
+                            {isCollapsed && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onUpdateRitual(
+                                    ritual.id,
+                                    updateActiveVersion(ritual, { retained: !version.retained })
+                                  );
+                                }}
+                                className={`h-10 px-3 border-2 font-bold uppercase text-xs transition-colors ${
+                                  version.retained
+                                    ? 'bg-cyan-500 text-black border-cyan-500'
+                                    : 'bg-black text-cyan-200 border-cyan-500 hover:bg-cyan-500/20'
+                                }`}
+                              >
+                                {version.retained ? 'Retido' : 'Reter Ritual'}
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm('Tem certeza que deseja remover este ritual? Esta ação não pode ser desfeita.')) {
+                                  setRemovingRitualIds((prev) => ({ ...prev, [ritual.id]: true }));
+                                  setTimeout(() => {
+                                    onRemoveRitual(ritual.id);
+                                  }, 300);
+                                }
+                              }}
+                              className="text-cyan-400 hover:text-cyan-200 transition-colors"
                               aria-label="Remover ritual"
                             >
                               <Trash2 size={16} />
@@ -351,132 +406,169 @@ export default function RitualsPanel({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Círculo</label>
-                            <input
-                              type="text"
-                              value={version.circle}
-                              onChange={(e) =>
-                                onUpdateRitual(
-                                  ritual.id,
-                                  updateActiveVersion(ritual, { circle: e.target.value })
-                                )
-                              }
-                              className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Custo</label>
-                            <input
-                              type="text"
-                              value={version.cost}
-                              onChange={(e) =>
-                                onUpdateRitual(
-                                  ritual.id,
-                                  updateActiveVersion(ritual, { cost: e.target.value })
-                                )
-                              }
-                              className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Duração</label>
-                            <input
-                              type="text"
-                              value={version.duration}
-                              onChange={(e) =>
-                                onUpdateRitual(
-                                  ritual.id,
-                                  updateActiveVersion(ritual, { duration: e.target.value })
-                                )
-                              }
-                              className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Resistência</label>
-                            <input
-                              type="number"
-                              value={version.resistance}
-                              onChange={(e) =>
-                                onUpdateRitual(
-                                  ritual.id,
-                                  updateActiveVersion(ritual, {
-                                    resistance: parseInt(e.target.value) || 0,
-                                  })
-                                )
-                              }
-                              className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Tipo</label>
-                          <div className="grid grid-cols-3 gap-1">
-                            {RITUAL_TYPES.map((option) => (
-                              <button
-                                key={option.value}
-                                onClick={() =>
-                                  onUpdateRitual(ritual.id, updateActiveVersion(ritual, { type: option.value }))
-                                }
-                                className={`h-8 text-xs font-bold uppercase border transition-colors ${
-                                  version.type === option.value
-                                    ? 'bg-cyan-500 text-black border-cyan-500'
-                                    : 'bg-black text-cyan-300 border-cyan-500 hover:bg-cyan-500/20'
-                                }`}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Efeito</label>
-                          <textarea
-                            value={version.description}
-                            onChange={(e) =>
-                              onUpdateRitual(
-                                ritual.id,
-                                updateActiveVersion(ritual, { description: e.target.value })
-                              )
-                            }
-                            onInput={(e) => autoResizeTextarea(e.currentTarget)}
-                            className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-2 outline-none resize-none overflow-hidden"
-                            rows={2}
-                          />
-                        </div>
-
-                        <div>
-                          <button
-                            onClick={() =>
-                              onUpdateRitual(
-                                ritual.id,
-                                updateActiveVersion(ritual, { retained: !version.retained })
-                              )
-                            }
-                            className={`h-8 w-full border-2 font-bold uppercase text-xs transition-colors ${
-                              version.retained
-                                ? 'bg-cyan-500 text-black border-cyan-500'
-                                : 'bg-black text-cyan-200 border-cyan-500'
-                            }`}
-                          >
-                            Retido {version.retained ? '✓' : ''}
-                          </button>
-                        </div>
-
-                        <button
-                          onClick={() =>
-                            isSelectedSymbolReady && activeConjureRitual === ritual.id
-                              ? onContinueRitual(ritual.id)
-                              : onConjureRitual(ritual)
-                          }
-                          className="w-full py-2 bg-cyan-500 text-black font-bold uppercase border border-cyan-400 hover:bg-cyan-400 transition-colors text-xs"
+                        <div
+                          className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                            isCollapsed ? 'max-h-0 opacity-0 -translate-y-1 pointer-events-none' : 'max-h-[1000px] opacity-100'
+                          }`}
                         >
-                          {isSelectedSymbolReady && activeConjureRitual === ritual.id ? 'Continuar Ritual' : 'Conjurar Ritual'}
-                        </button>
+                          <div className="p-2 pt-0 space-y-2">
+                            <div>
+                              <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Versões</label>
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                                  <button
+                                    onClick={() => goToPreviousVersion(ritual)}
+                                    disabled={ritual.activeVersion === 0}
+                                    className="h-6 w-6 border border-cyan-500 text-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-cyan-500 hover:text-black transition-colors flex items-center justify-center"
+                                    aria-label="Versão anterior"
+                                  >
+                                    <ChevronLeft size={12} />
+                                  </button>
+                                  <span className="text-[10px] text-cyan-300 uppercase font-bold min-w-12 text-center">
+                                    {ritual.activeVersion + 1}/3
+                                  </span>
+                                  <button
+                                    onClick={() => goToNextVersion(ritual)}
+                                    disabled={ritual.activeVersion === 2 && ritual.versions.length >= 3}
+                                    className="h-6 w-6 border border-cyan-500 text-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-cyan-500 hover:text-black transition-colors flex items-center justify-center"
+                                    aria-label="Versão seguinte"
+                                  >
+                                    <ChevronRight size={12} />
+                                  </button>
+                                </div>
+                                <div className="flex-1 flex justify-center">
+                                  <button
+                                    onClick={() =>
+                                      onUpdateRitual(
+                                        ritual.id,
+                                        updateActiveVersion(ritual, { retained: !version.retained })
+                                      )
+                                    }
+                                    className={`h-9 px-6 border-2 font-bold uppercase text-xs transition-colors whitespace-nowrap min-w-36 ${
+                                      version.retained
+                                        ? 'bg-cyan-500 text-black border-cyan-500'
+                                        : 'bg-black text-cyan-200 border-cyan-500 hover:bg-cyan-500/20'
+                                    }`}
+                                  >
+                                    {version.retained ? 'Retido' : 'Reter Ritual'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2">
+                              <div>
+                                <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Círculo</label>
+                                <input
+                                  type="text"
+                                  value={version.circle}
+                                  onChange={(e) =>
+                                    onUpdateRitual(
+                                      ritual.id,
+                                      updateActiveVersion(ritual, { circle: e.target.value })
+                                    )
+                                  }
+                                  className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Custo</label>
+                                <input
+                                  type="text"
+                                  value={version.cost}
+                                  onChange={(e) =>
+                                    onUpdateRitual(
+                                      ritual.id,
+                                      updateActiveVersion(ritual, { cost: e.target.value })
+                                    )
+                                  }
+                                  className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Resistência</label>
+                                <input
+                                  type="number"
+                                  value={version.resistance}
+                                  onChange={(e) =>
+                                    onUpdateRitual(
+                                      ritual.id,
+                                      updateActiveVersion(ritual, {
+                                        resistance: parseInt(e.target.value) || 0,
+                                      })
+                                    )
+                                  }
+                                  className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Duração</label>
+                                <input
+                                  type="text"
+                                  value={version.duration}
+                                  onChange={(e) =>
+                                    onUpdateRitual(
+                                      ritual.id,
+                                      updateActiveVersion(ritual, { duration: e.target.value })
+                                    )
+                                  }
+                                  className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Tipo</label>
+                              <div className="grid grid-cols-3 gap-1">
+                                {RITUAL_TYPES.map((option) => (
+                                  <button
+                                    key={option.value}
+                                    onClick={() =>
+                                      onUpdateRitual(ritual.id, updateActiveVersion(ritual, { type: option.value }))
+                                    }
+                                    className={`h-8 text-xs font-bold uppercase border transition-colors ${
+                                      version.type === option.value
+                                        ? 'bg-cyan-500 text-black border-cyan-500'
+                                        : 'bg-black text-cyan-300 border-cyan-500 hover:bg-cyan-500/20'
+                                    }`}
+                                  >
+                                    {option.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Efeito</label>
+                              <textarea
+                                value={version.description}
+                                onChange={(e) =>
+                                  onUpdateRitual(
+                                    ritual.id,
+                                    updateActiveVersion(ritual, { description: e.target.value })
+                                  )
+                                }
+                                onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                                data-ritual-effect-textarea="true"
+                                className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-2 outline-none resize-none overflow-hidden"
+                                rows={2}
+                              />
+                            </div>
+
+                            <div>
+                              <button
+                                onClick={() =>
+                                  isSelectedSymbolReady && activeConjureRitual === ritual.id
+                                    ? onContinueRitual(ritual.id)
+                                    : onConjureRitual(ritual)
+                                }
+                                className="w-full py-2 bg-cyan-500 text-black font-bold uppercase border border-cyan-400 hover:bg-cyan-400 transition-colors text-xs"
+                              >
+                                {isSelectedSymbolReady && activeConjureRitual === ritual.id ? 'Continuar Ritual' : 'Conjurar Ritual'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -539,7 +631,13 @@ export default function RitualsPanel({
                   </div>
                 )}
 
-                {showRitualForm && (
+                <div
+                  className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                    showRitualForm
+                      ? 'max-h-[2000px] opacity-100'
+                      : 'max-h-0 opacity-0 pointer-events-none'
+                  }`}
+                >
                   <div className="space-y-2 border border-cyan-500 p-2 bg-cyan-950/10">
                     <div>
                       <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Nome</label>
@@ -552,7 +650,7 @@ export default function RitualsPanel({
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       <div>
                         <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Círculo</label>
                         <input
@@ -572,15 +670,6 @@ export default function RitualsPanel({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Duração</label>
-                        <input
-                          type="text"
-                          value={newRitual.duration}
-                          onChange={(e) => setNewRitual((prev) => ({ ...prev, duration: e.target.value }))}
-                          className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
-                        />
-                      </div>
-                      <div>
                         <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Resistência</label>
                         <input
                           type="number"
@@ -591,6 +680,15 @@ export default function RitualsPanel({
                               resistance: parseInt(e.target.value) || 0,
                             }))
                           }
+                          className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-cyan-400 uppercase font-bold block mb-0.5">Duração</label>
+                        <input
+                          type="text"
+                          value={newRitual.duration}
+                          onChange={(e) => setNewRitual((prev) => ({ ...prev, duration: e.target.value }))}
                           className="w-full bg-black text-cyan-200 text-xs border border-cyan-500 p-1.5 outline-none"
                         />
                       </div>
@@ -623,6 +721,7 @@ export default function RitualsPanel({
                           setNewRitual((prev) => ({ ...prev, description: e.target.value }))
                         }
                         onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                        data-ritual-effect-textarea="true"
                         className="w-full bg-black text-cyan-200 text-sm border border-cyan-500 p-2 outline-none resize-none overflow-hidden"
                         rows={2}
                       />
@@ -657,7 +756,7 @@ export default function RitualsPanel({
                       </button>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
 
               <div>

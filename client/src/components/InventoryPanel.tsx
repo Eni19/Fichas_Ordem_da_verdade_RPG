@@ -44,7 +44,7 @@ interface InventoryPanelProps {
   onDeleteWeapon: (weaponId: string) => void;
   onToggleWeaponActive: (weaponId: string) => void;
   onRollWeaponTest: (weapon: Weapon) => void;
-  onRollWeaponDamage: (weapon: Weapon) => void;
+  onCloseMenu?: () => void;
 }
 
 export default function InventoryPanel({
@@ -61,7 +61,7 @@ export default function InventoryPanel({
   onDeleteWeapon,
   onToggleWeaponActive,
   onRollWeaponTest,
-  onRollWeaponDamage,
+  onCloseMenu,
 }: InventoryPanelProps) {
   const autoResizeTextarea = (target: HTMLTextAreaElement) => {
     target.style.height = 'auto';
@@ -107,7 +107,7 @@ export default function InventoryPanel({
               onDeleteWeapon={onDeleteWeapon}
               onToggleActive={onToggleWeaponActive}
               onRollWeaponTest={onRollWeaponTest}
-              onRollWeaponDamage={onRollWeaponDamage}
+              onCloseMenu={onCloseMenu}
             />
 
             {/* Inventory Section */}

@@ -15,6 +15,11 @@ interface SkillRollRequest {
   trainingLabel: string;
   attributeValue: number;
   trainingDie: number;
+  weaponName?: string;
+  criticalThreshold?: number;
+  criticalMultiplier?: number;
+  damageDiceCount?: number;
+  damageDiceSides?: number;
 }
 
 interface DamageRollRequest {
@@ -33,8 +38,6 @@ interface DiceRollerProps {
 export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRollerProps) {
   const [isRolling, setIsRolling] = useState(false);
   const [history, setHistory] = useState<DiceResult[]>([]);
-  const [advantageEnabled, setAdvantageEnabled] = useState(false);
-  const [disadvantageEnabled, setDisadvantageEnabled] = useState(false);
   const [displayRolls, setDisplayRolls] = useState<number[]>([]);
   const [displayMessage, setDisplayMessage] = useState<string | null>(null);
   const [displayFlash, setDisplayFlash] = useState<'critical' | 'fail' | null>(null);
@@ -46,6 +49,8 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
   const [displaySubtitle, setDisplaySubtitle] = useState<string | null>(null);
   const [displayModifier, setDisplayModifier] = useState(0);
   const [isReRolling, setIsReRolling] = useState<'attribute' | 'training' | null>(null);
+  const [isCritical, setIsCritical] = useState(false);
+  const [lastAttackWeapon, setLastAttackWeapon] = useState<SkillRollRequest | null>(null);
 
   const diceTypes = [4, 6, 8, 10, 12, 20];
   const maxDice = 10;
@@ -99,13 +104,72 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     if (firstRoll === 1 && secondRoll === 1) {
       setDisplayMessage('Falha Critica!');
       setDisplayFlash('fail');
+      setIsCritical(false);
     } else if (firstRoll === secondRoll && firstRoll >= 6) {
       setDisplayMessage('Critico!');
       setDisplayFlash('critical');
+      setIsCritical(true);
     } else {
       setDisplayMessage(null);
       setDisplayFlash(null);
+      setIsCritical(false);
     }
+  };
+
+  const rollWeaponDamage = () => {
+    if (!lastAttackWeapon || isRolling) return;
+    if (lastAttackWeapon.damageDiceCount === undefined || lastAttackWeapon.damageDiceSides === undefined) return;
+
+    const diceCount = lastAttackWeapon.damageDiceCount;
+    const diceType = lastAttackWeapon.damageDiceSides;
+    let multiplier = 1;
+
+    if (isCritical && lastAttackWeapon.criticalMultiplier) {
+      multiplier = lastAttackWeapon.criticalMultiplier;
+    }
+
+    setDisplayMode('custom');
+    setCustomFormula(`${diceCount}d${diceType}${multiplier > 1 ? ` x${multiplier}` : ''}`);
+    setDisplaySubtitle(`${lastAttackWeapon.weaponName || 'Dano da arma'}${multiplier > 1 ? ' (Crítico)' : ''}`);
+    setDisplayModifier(0);
+    setDisplayMessage(null);
+    setDisplayFlash(null);
+    setIsRolling(true);
+    setDisplayRolls(Array.from({ length: diceCount }, () => Math.floor(Math.random() * diceType) + 1));
+
+    const animationDuration = 650;
+    const startTime = Date.now();
+
+    const animateRoll = () => {
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed < animationDuration) {
+        setDisplayRolls(Array.from({ length: diceCount }, () => Math.floor(Math.random() * diceType) + 1));
+        requestAnimationFrame(animateRoll);
+        return;
+      }
+
+      const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * diceType) + 1);
+      let total = rolls.reduce((sum, current) => sum + current, 0);
+      total *= multiplier;
+
+      const result: DiceResult = {
+        formula: `${diceCount}d${diceType}${multiplier > 1 ? ` x${multiplier}` : ''}`,
+        total,
+        rolls,
+        timestamp: new Date().toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }),
+      };
+
+      setHistory((prev) => [result, ...prev.slice(0, 4)]);
+      setDisplayRolls(rolls);
+      setIsRolling(false);
+    };
+
+    animateRoll();
   };
 
   const reRollDice = (diceToReRoll: 'attribute' | 'training') => {
@@ -153,16 +217,7 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
         let total = newRolls[0] + newRolls[1];
         const finalRolls = [...newRolls];
 
-        if (advantageEnabled) {
-          total += newRolls[2];
-        }
-        if (disadvantageEnabled) {
-          total += newRolls[advantageEnabled ? 3 : 2];
-        }
-
         const formulaParts = [attributeConfig.formula, `1d${rollRequest.trainingDie}`];
-        if (advantageEnabled) formulaParts.push('1d6');
-        if (disadvantageEnabled) formulaParts.push('-1d6');
         const formula = formulaParts.join(' + ').replace('+ -', '- ');
 
         const result: DiceResult = {
@@ -285,14 +340,14 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     if (lastProcessedRollIdRef.current === rollRequest.id) return;
 
     lastProcessedRollIdRef.current = rollRequest.id;
+    setLastAttackWeapon(rollRequest);
     setDisplayMode('skill');
     setDisplayModifier(0);
 
     const attributeConfig = getAttributeRollConfig(rollRequest.attributeValue);
 
     const diceSides = [attributeConfig.animationDie, rollRequest.trainingDie];
-    if (advantageEnabled) diceSides.push(6);
-    if (disadvantageEnabled) diceSides.push(6);
+
 
     setDisplayMessage(null);
     setDisplayFlash(null);
@@ -317,23 +372,12 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
 
       triggerDisplayOutcome(baseAttributeRoll, baseTrainingRoll);
 
-      if (advantageEnabled) {
-        const advantageRoll = Math.floor(Math.random() * 6) + 1;
-        finalRolls.push(advantageRoll);
-        total += advantageRoll;
-      }
 
-      if (disadvantageEnabled) {
-        const disadvantageRoll = Math.floor(Math.random() * 6) + 1;
-        finalRolls.push(-disadvantageRoll);
-        total -= disadvantageRoll;
-      }
 
       setDisplayRolls(finalRolls);
 
       const formulaParts = [attributeConfig.formula, `1d${rollRequest.trainingDie}`];
-      if (advantageEnabled) formulaParts.push('1d6');
-      if (disadvantageEnabled) formulaParts.push('-1d6');
+
       const formula = formulaParts.join(' + ').replace('+ -', '- ');
 
       const result: DiceResult = {
@@ -352,7 +396,7 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     };
 
     animateRoll();
-  }, [rollRequest, advantageEnabled, disadvantageEnabled, isRolling]);
+  }, [rollRequest, isRolling]);
 
   useEffect(() => {
     if (!damageRollRequest) return;
@@ -469,50 +513,22 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
           </div>
         )}
 
+        {displayMode === 'skill' && displayRolls[0] && !isRolling && displayFlash !== 'fail' && lastAttackWeapon?.damageDiceCount && lastAttackWeapon?.damageDiceSides && (
+          <button
+            onClick={rollWeaponDamage}
+            className="w-full mb-3 py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase border border-red-500 transition-all text-xs"
+          >
+            Rolar Dano
+          </button>
+        )}
+
         {displayMode === 'skill' && displayRolls[0] && !isRolling && (
           <div className="mb-3 text-center text-[9px] text-gray-400 italic">
             Clique em um dado para re-rolálo
           </div>
         )}
 
-        {(advantageEnabled || disadvantageEnabled) && (
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="h-10 border border-primary text-primary flex items-center justify-center text-sm font-bold">
-              {advantageEnabled ? `+${displayRolls[2] ?? '-'}` : '-'}
-            </div>
-            <div className="h-10 border border-red-500 text-red-400 flex items-center justify-center text-sm font-bold">
-              {disadvantageEnabled ? `-${Math.abs(displayRolls[advantageEnabled ? 3 : 2] ?? 0)}` : '-'}
-            </div>
-          </div>
-        )}
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setAdvantageEnabled((prev) => !prev);
-            }}
-            className={`flex-1 px-2 py-1 text-xs font-bold uppercase border-2 transition-all ${
-              advantageEnabled
-                ? 'bg-primary border-primary text-black'
-                : 'border-primary text-primary hover:bg-primary hover:text-black'
-            }`}
-          >
-            Vantagem
-          </button>
-
-          <button
-            onClick={() => {
-              setDisadvantageEnabled((prev) => !prev);
-            }}
-            className={`flex-1 px-2 py-1 text-xs font-bold uppercase border-2 transition-all ${
-              disadvantageEnabled
-                ? 'bg-red-600 border-red-500 text-white'
-                : 'border-red-500 text-red-500 hover:bg-red-500 hover:text-black'
-            }`}
-          >
-            Desvantagem
-          </button>
-        </div>
       </div>
 
       <div className="border-2 border-red-500 p-4 bg-black">

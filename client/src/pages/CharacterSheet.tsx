@@ -371,7 +371,15 @@ export default function CharacterSheet() {
       trainingLabel: `${weapon.skill} (1d${skillTrainingDie})`,
       attributeValue: normalizedAttribute,
       trainingDie: skillTrainingDie,
+      weaponName: weapon.name || 'Arma sem nome',
+      criticalThreshold: weapon.criticalThreshold,
+      criticalMultiplier: weapon.criticalMultiplier,
+      damageDiceCount: weapon.damageDiceCount,
+      damageDiceSides: weapon.damageDiceSides,
     });
+
+    // Minimiza/fecha o menu lateral quando fazer um ataque
+    setOpenSidebar(null);
   };
 
   const handleVitalChange = (type: 'hp' | 'sanity', field: 'current' | 'max', value: number): void => {
@@ -490,18 +498,6 @@ export default function CharacterSheet() {
         });
       }
     }
-  };
-
-  const handleRollWeaponDamage = (weapon: Weapon) => {
-    const diceCount = Math.max(1, weapon.damageDiceCount || 1);
-
-    setPendingDamageRoll({
-      id: Date.now(),
-      weaponName: weapon.name || 'Arma sem nome',
-      diceCount,
-      diceType: weapon.damageDiceSides,
-      modifier: 0,
-    });
   };
 
   const toggleInventoryPanel = () => {
@@ -1018,7 +1014,7 @@ export default function CharacterSheet() {
         onDeleteWeapon={handleDeleteWeapon}
         onToggleWeaponActive={handleToggleWeaponActive}
         onRollWeaponTest={handleRollWeaponTest}
-        onRollWeaponDamage={handleRollWeaponDamage}
+        onCloseMenu={() => setOpenSidebar(null)}
       />
 
       {/* Insanity Panel - Second Retractable Sidebar */}
