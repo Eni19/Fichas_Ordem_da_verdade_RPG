@@ -1,6 +1,17 @@
+import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Trash2, Plus, Dice6 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WeaponsList from '@/components/WeaponsList';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface InventoryItem {
   id: string;
@@ -63,6 +74,9 @@ export default function InventoryPanel({
   onRollWeaponTest,
   onCloseMenu,
 }: InventoryPanelProps) {
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<InventoryItem | null>(null);
+  const [exitingItemId, setExitingItemId] = useState<string | null>(null);
+
   const autoResizeTextarea = (target: HTMLTextAreaElement) => {
     target.style.height = 'auto';
     target.style.height = `${target.scrollHeight}px`;
@@ -125,7 +139,12 @@ export default function InventoryPanel({
 
               <div className="space-y-2">
                 {inventory.map((item) => (
-                  <div key={item.id} className="border border-primary bg-black p-1.5 space-y-1">
+                  <div
+                    key={item.id}
+                    className={`border border-primary bg-black p-1.5 space-y-1 transition-all duration-300 ease-out ${
+                      exitingItemId === item.id ? 'opacity-0 scale-95 -translate-y-1 pointer-events-none' : 'opacity-100 scale-100'
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <input
                         type="text"
@@ -135,7 +154,7 @@ export default function InventoryPanel({
                         placeholder="Item"
                       />
                       <button
-                        onClick={() => onDeleteItem(item.id)}
+                        onClick={() => setPendingDeleteItem(item)}
                         className="text-primary hover:text-secondary transition-colors p-0 flex-shrink-0"
                       >
                         <Trash2 size={12} />
@@ -156,6 +175,39 @@ export default function InventoryPanel({
           </div>
         </ScrollArea>
       )}
+
+      <AlertDialog
+        open={Boolean(pendingDeleteItem)}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteItem(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover equipamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação remove permanentemente o item {pendingDeleteItem?.name || 'selecionado'}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingDeleteItem) return;
+                const deletingId = pendingDeleteItem.id;
+                setExitingItemId(deletingId);
+                setPendingDeleteItem(null);
+                window.setTimeout(() => {
+                  onDeleteItem(deletingId);
+                  setExitingItemId(null);
+                }, 220);
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </>
   );

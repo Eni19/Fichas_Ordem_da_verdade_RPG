@@ -25,10 +25,9 @@ import symbols, { type RitualSymbol } from '@/data/symbols';
 interface Skill {
   id: string;
   name: string;
-  description: string;
-  damage: string;
-  hasCounter: boolean;
-  counter: number;
+  origin: string;
+  cost: string;
+  effect: string;
 }
 
 interface Pericia {
@@ -289,10 +288,9 @@ export default function CharacterSheet() {
     const newSkill: Skill = {
       id: Date.now().toString(),
       name: 'Nova Habilidade',
-      description: 'Descricao da habilidade',
-      damage: '1d6',
-      hasCounter: false,
-      counter: 0,
+      origin: 'Origem da habilidade',
+      cost: '0',
+      effect: 'Descricao da habilidade',
     };
     setCharacter((prev) => ({ ...prev, skills: [...prev.skills, newSkill] }));
   };
@@ -822,7 +820,14 @@ export default function CharacterSheet() {
     data: Partial<Omit<CharacterData, 'rituals'>> & {
       expertises?: Array<{ id: string; name: string }>;
       skills?: Array<
-        Partial<Skill> & { id: string; name?: string; effect?: string; cost?: number }
+        Partial<Skill> & {
+          id: string;
+          name?: string;
+          source?: string;
+          description?: string;
+          damage?: string;
+          cost?: string | number;
+        }
       >;
       rituals?: LoadedRitual[];
     }
@@ -850,10 +855,9 @@ export default function CharacterSheet() {
       ? data.skills.map((skill) => ({
           id: skill.id,
           name: skill.name ?? 'Habilidade',
-          description: skill.description ?? skill.effect ?? '',
-          damage: skill.damage ?? '1d6',
-          hasCounter: skill.hasCounter ?? false,
-          counter: skill.counter ?? skill.cost ?? 0,
+          origin: skill.origin ?? skill.source ?? '',
+          cost: skill.cost != null ? String(skill.cost) : '',
+          effect: skill.effect ?? skill.description ?? skill.damage ?? '',
         }))
       : [];
 

@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { RitualSymbol } from '@/data/symbols';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type RitualType = 'dano' | 'aflicao' | 'utilidade';
 
@@ -92,17 +102,21 @@ export default function RitualsPanel({
     retained: false,
   });
 
-  const getActiveVersion = (ritual: Ritual) => ritual.versions[ritual.activeVersion] ?? ritual.versions[0];
+  const [pendingRemoveRitual, setPendingRemoveRitual] = useState<Ritual | null>(null);
 
-  const updateActiveVersion = (ritual: Ritual, updates: Partial<RitualVersion>): Ritual => {
-    const activeVersion = Math.max(0, Math.min(ritual.activeVersion, ritual.versions.length - 1));
+  const pendingRemoveRitualName = pendingRemoveRitual
+    ? pendingRemoveRitual.versions[pendingRemoveRitual.activeVersion]?.name || 'selecionado'
+    : 'selecionado';
 
-    return {
-      ...ritual,
-      versions: ritual.versions.map((version, index) =>
-        index === activeVersion ? { ...version, ...updates } : version
-      ),
-    };
+  const updateActiveVersion = (ritual: Ritual, updates: Partial<RitualVersion>): Ritual => ({
+    ...ritual,
+    versions: ritual.versions.map((version, index) =>
+      index === ritual.activeVersion ? { ...version, ...updates } : version
+    ),
+  });
+
+  const getActiveVersion = (ritual: Ritual): RitualVersion => {
+    return ritual.versions[ritual.activeVersion] ?? ritual.versions[0];
   };
 
   const autoResizeTextarea = (target: HTMLTextAreaElement) => {
@@ -391,12 +405,7 @@ export default function RitualsPanel({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (window.confirm('Tem certeza que deseja remover este ritual? Esta ação não pode ser desfeita.')) {
-                                  setRemovingRitualIds((prev) => ({ ...prev, [ritual.id]: true }));
-                                  setTimeout(() => {
-                                    onRemoveRitual(ritual.id);
-                                  }, 300);
-                                }
+                                setPendingRemoveRitual(ritual);
                               }}
                               className="text-cyan-400 hover:text-cyan-200 transition-colors"
                               aria-label="Remover ritual"
@@ -770,6 +779,38 @@ export default function RitualsPanel({
             </div>
           </ScrollArea>
         )}
+
+        <AlertDialog
+          open={Boolean(pendingRemoveRitual)}
+          onOpenChange={(open) => {
+            if (!open) setPendingRemoveRitual(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remover ritual?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação remove permanentemente o ritual {pendingRemoveRitualName}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (!pendingRemoveRitual) return;
+                  setRemovingRitualIds((prev) => ({ ...prev, [pendingRemoveRitual.id]: true }));
+                  const ritualId = pendingRemoveRitual.id;
+                  setPendingRemoveRitual(null);
+                  window.setTimeout(() => {
+                    onRemoveRitual(ritualId);
+                  }, 300);
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

@@ -1,13 +1,22 @@
 import { useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Minus, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Skill {
   id: string;
   name: string;
-  description: string;
-  damage: string;
-  hasCounter: boolean;
-  counter: number;
+  origin: string;
+  cost: string;
+  effect: string;
 }
 
 interface SkillsListProps {
@@ -20,6 +29,8 @@ interface SkillsListProps {
 export default function SkillsList({ skills, onUpdateSkill, onDeleteSkill, onReorderSkills }: SkillsListProps) {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [draggedSkillId, setDraggedSkillId] = useState<string | null>(null);
+  const [pendingDeleteSkill, setPendingDeleteSkill] = useState<Skill | null>(null);
+  const [exitingSkillId, setExitingSkillId] = useState<string | null>(null);
 
   const scrollCards = (direction: 'left' | 'right') => {
     if (!carouselRef.current) return;
@@ -49,7 +60,7 @@ export default function SkillsList({ skills, onUpdateSkill, onDeleteSkill, onReo
       )}
 
       <div ref={carouselRef} className="flex-1 overflow-x-auto overflow-y-hidden pb-2">
-        <div className="flex gap-4 pr-6 min-w-max items-stretch">
+        <div className="flex gap-4 pr-6 min-w-max items-stretch py-2">
         {skills.length === 0 ? (
           <div className="flex items-center justify-center text-muted-foreground text-center py-10 w-full min-w-[20rem]">
             <p className="font-mono text-sm">Nenhuma habilidade adicionada ainda.</p>
@@ -76,8 +87,12 @@ export default function SkillsList({ skills, onUpdateSkill, onDeleteSkill, onReo
                 onReorderSkills(draggedId, skill.id);
                 setDraggedSkillId(null);
               }}
-              className={`border-2 p-5 bg-black space-y-3 flex-shrink-0 w-[20rem] min-h-[19rem] cursor-grab active:cursor-grabbing transition-colors ${
-                draggedSkillId === skill.id ? 'border-secondary opacity-80' : 'border-primary'
+              className={`border-2 p-5 bg-black space-y-3 flex-shrink-0 w-[20rem] min-h-[21.5rem] cursor-grab active:cursor-grabbing transition-all duration-300 ease-out transform animate-in fade-in-50 slide-in-from-top-2 ${
+                draggedSkillId === skill.id
+                  ? 'border-secondary opacity-80 scale-[0.98]'
+                  : exitingSkillId === skill.id
+                    ? 'border-secondary opacity-0 scale-[0.96] -translate-y-2 pointer-events-none'
+                    : 'border-primary opacity-100 translate-y-0'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -89,17 +104,41 @@ export default function SkillsList({ skills, onUpdateSkill, onDeleteSkill, onReo
                   placeholder="Nome da Habilidade"
                 />
                 <button
-                  onClick={() => onDeleteSkill(skill.id)}
+                  onClick={() => setPendingDeleteSkill(skill)}
                   className="text-primary hover:text-secondary transition-colors p-0 flex-shrink-0"
                 >
                   <Trash2 size={14} />
                 </button>
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="font-display text-[11px] text-primary uppercase">Origem</label>
+                  <input
+                    type="text"
+                    value={skill.origin}
+                    onChange={(e) => onUpdateSkill(skill.id, 'origin', e.target.value)}
+                    className="w-full bg-input border border-primary text-primary text-sm p-1 focus:outline-none focus:ring-1 focus:ring-primary transition-colors duration-200"
+                    placeholder="Origem"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-display text-[11px] text-primary uppercase">Custo</label>
+                  <input
+                    type="text"
+                    value={skill.cost}
+                    onChange={(e) => onUpdateSkill(skill.id, 'cost', e.target.value)}
+                    className="w-full bg-input border border-primary text-primary text-sm p-1 focus:outline-none focus:ring-1 focus:ring-primary transition-colors duration-200"
+                    placeholder="Custo"
+                  />
+                </div>
+              </div>
+
               <textarea
-                value={skill.description}
+                value={skill.effect}
                 onChange={(e) => {
-                  onUpdateSkill(skill.id, 'description', e.target.value);
+                  onUpdateSkill(skill.id, 'effect', e.target.value);
                   // Auto-expand textarea
                   e.target.style.height = 'auto';
                   e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
@@ -108,82 +147,49 @@ export default function SkillsList({ skills, onUpdateSkill, onDeleteSkill, onReo
                   e.currentTarget.style.height = 'auto';
                   e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 120) + 'px';
                 }}
-                className="w-full bg-transparent border border-primary text-muted-foreground text-xs p-1 focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-hidden"
-                placeholder="Descrição do efeito"
-                rows={3}
-                style={{ minHeight: '84px' }}
+                className="w-full bg-transparent border border-primary text-muted-foreground text-xs p-1 focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-hidden transition-colors duration-200"
+                placeholder="Efeito da habilidade"
+                rows={4}
+                style={{ minHeight: '220px' }}
               />
-
-              <div className="flex items-center gap-2">
-                <label className="font-display text-xs text-primary uppercase">Dano:</label>
-                <input
-                  type="text"
-                  value={skill.damage}
-                  onChange={(e) => onUpdateSkill(skill.id, 'damage', e.target.value)}
-                  style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-                  className="w-24 bg-input border border-primary text-primary text-center focus:outline-none focus:ring-1 focus:ring-primary text-sm p-1"
-                  placeholder="1d6"
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                <label className="font-display text-xs text-primary uppercase flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={skill.hasCounter}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      onUpdateSkill(skill.id, 'hasCounter', enabled);
-                      if (!enabled) {
-                        onUpdateSkill(skill.id, 'counter', 0);
-                      }
-                    }}
-                    className="accent-red-500"
-                  />
-                  Contador
-                </label>
-
-                {skill.hasCounter && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onUpdateSkill(skill.id, 'counter', Math.max(0, skill.counter - 1))}
-                      className="w-7 h-7 border border-primary text-primary hover:bg-primary hover:text-black transition-colors flex items-center justify-center"
-                      aria-label="Diminuir contador"
-                    >
-                      <Minus size={12} />
-                    </button>
-                    <span
-                      style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-                      className="text-primary text-sm min-w-8 text-center"
-                    >
-                      {skill.counter}
-                    </span>
-                    <button
-                      onClick={() => onUpdateSkill(skill.id, 'counter', skill.counter + 1)}
-                      className="w-7 h-7 border border-primary text-primary hover:bg-primary hover:text-black transition-colors flex items-center justify-center"
-                      aria-label="Incrementar contador"
-                    >
-                      <Plus size={12} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {skill.hasCounter && (
-                <input
-                  type="number"
-                  value={skill.counter}
-                  onChange={(e) => onUpdateSkill(skill.id, 'counter', parseInt(e.target.value) || 0)}
-                  style={{ fontWeight: 700, fontFamily: "'Roboto Mono', monospace" }}
-                  className="w-16 bg-input border border-primary text-primary text-center focus:outline-none focus:ring-1 focus:ring-primary text-xs p-1"
-                  min="0"
-                />
-              )}
             </div>
           ))
         )}
         </div>
       </div>
+
+      <AlertDialog
+        open={Boolean(pendingDeleteSkill)}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteSkill(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir habilidade?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação remove permanentemente a habilidade {pendingDeleteSkill?.name || 'selecionada'}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingDeleteSkill) return;
+                const deletingId = pendingDeleteSkill.id;
+                setExitingSkillId(deletingId);
+                setPendingDeleteSkill(null);
+                window.setTimeout(() => {
+                  onDeleteSkill(deletingId);
+                  setExitingSkillId(null);
+                }, 220);
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

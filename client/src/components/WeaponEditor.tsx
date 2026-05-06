@@ -8,6 +8,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface WeaponTag {
   id: string;
@@ -53,6 +63,7 @@ export default function WeaponEditor({
   const [newTagDescription, setNewTagDescription] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [pendingDeleteWeapon, setPendingDeleteWeapon] = useState(false);
 
   const handleAddTag = () => {
     if (!newTagName.trim()) return;
@@ -326,20 +337,45 @@ export default function WeaponEditor({
       </div>
 
       {onDelete && (
-        <button
-          onClick={() => {
-            if (confirm('Tem certeza que deseja remover esta arma? Esta ação não pode ser desfeita.')) {
-              setIsRemoving(true);
-              setTimeout(() => {
-                onDelete?.();
-              }, 300);
-            }
-          }}
-          className="w-full py-2 bg-black border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold uppercase transition-all text-xs"
-        >
-          <Trash2 className="inline mr-1" size={12} />
-          Remover Arma
-        </button>
+        <>
+          <button
+            onClick={() => setPendingDeleteWeapon(true)}
+            className="w-full py-2 bg-black border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold uppercase transition-all text-xs"
+          >
+            <Trash2 className="inline mr-1" size={12} />
+            Remover Arma
+          </button>
+
+          <AlertDialog
+            open={pendingDeleteWeapon}
+            onOpenChange={(open) => {
+              if (!open) setPendingDeleteWeapon(false);
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remover equipamento?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação remove permanentemente a arma {weapon.name || 'selecionada'}.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    setPendingDeleteWeapon(false);
+                    setIsRemoving(true);
+                    window.setTimeout(() => {
+                      onDelete?.();
+                    }, 300);
+                  }}
+                >
+                  Excluir
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
       )}
     </div>
   );
