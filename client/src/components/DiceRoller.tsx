@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dice6 } from 'lucide-react';
+import pressagioPhrases from '@/data/pressagio';
 
 interface DiceResult {
   formula: string;
@@ -38,9 +39,13 @@ interface DiceRollerProps {
 export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRollerProps) {
   const [isRolling, setIsRolling] = useState(false);
   const [history, setHistory] = useState<DiceResult[]>([]);
+  const [criticalHistory, setCriticalHistory] = useState<Array<{ value: number; timestamp: string }>>([]);
   const [displayRolls, setDisplayRolls] = useState<number[]>([]);
   const [displayMessage, setDisplayMessage] = useState<string | null>(null);
   const [displayFlash, setDisplayFlash] = useState<'critical' | 'fail' | null>(null);
+  const [showCriticalModal, setShowCriticalModal] = useState(false);
+  const [pressagioMessage, setPressagioMessage] = useState<string | null>(null);
+  const [criticalInterferencePhase, setCriticalInterferencePhase] = useState<'none' | 'normal' | 'glitch' | 'pressagio' | 'interference'>('none');
   const [numDice, setNumDice] = useState(2);
   const [diceType, setDiceType] = useState(12);
   const lastProcessedRollIdRef = useRef<number | null>(null);
@@ -55,6 +60,7 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
   const diceTypes = [4, 6, 8, 10, 12, 20];
   const maxDice = 10;
   const lastProcessedDamageRollIdRef = useRef<number | null>(null);
+  const criticalTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   const getAttributeRollConfig = (attributeValue: number) => {
     switch (attributeValue) {
@@ -100,19 +106,62 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     }
   };
 
-  const triggerDisplayOutcome = (firstRoll: number, secondRoll: number) => {
+  const clearCriticalTimeouts = () => {
+    criticalTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    criticalTimeoutsRef.current = [];
+  };
+
+  const triggerDisplayOutcome = (
+    firstRoll: number,
+    secondRoll: number,
+    criticalDice: number = 20,
+    criticalThreshold: number = 20
+  ) => {
+    // Limpar timeouts antigos de interferência crítica
+    clearCriticalTimeouts();
+
     if (firstRoll === 1 && secondRoll === 1) {
       setDisplayMessage('Falha Critica!');
       setDisplayFlash('fail');
       setIsCritical(false);
-    } else if (firstRoll === secondRoll && firstRoll >= 6) {
-      setDisplayMessage('Critico!');
-      setDisplayFlash('critical');
-      setIsCritical(true);
+      setPressagioMessage(null);
+      setCriticalInterferencePhase('none');
+    } else if (criticalDice >= criticalThreshold) {
+      // Fase 0: Mostrar resultado completamente normal
+      setDisplayMessage(null);
+      setDisplayFlash(null);
+      setIsCritical(false);
+      setCriticalInterferencePhase('normal');
+      
+      // Fase 1: depois 1s, começa o glitch
+      const timeout1 = setTimeout(() => {
+        setCriticalInterferencePhase('glitch');
+      }, 1000);
+      
+      // Fase 2: depois 2.5s (total 3.5s), mostrar presságio
+      const timeout2 = setTimeout(() => {
+        const randomPressagio = pressagioPhrases[Math.floor(Math.random() * pressagioPhrases.length)];
+        setPressagioMessage(randomPressagio.frase);
+        setCriticalInterferencePhase('pressagio');
+      }, 3500);
+      
+      // Fase 3: depois 4s mais (total 7.5s), mostrar interferência crítica
+      const timeout3 = setTimeout(() => {
+        setPressagioMessage(null);
+        setDisplayMessage('Interferência Crítica!');
+        setDisplayFlash(null);
+        setIsCritical(true);
+        setCriticalInterferencePhase('interference');
+      }, 7500);
+
+      // Armazenar os timeouts para limpeza posterior
+      criticalTimeoutsRef.current = [timeout1, timeout2, timeout3];
     } else {
       setDisplayMessage(null);
       setDisplayFlash(null);
       setIsCritical(false);
+      setPressagioMessage(null);
+      setCriticalInterferencePhase('none');
     }
   };
 
@@ -209,8 +258,15 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
           newRolls[1] = Math.floor(Math.random() * rollRequest.trainingDie) + 1;
         }
 
-        // Recalculate outcome
-        triggerDisplayOutcome(newRolls[0], newRolls[1]);
+        // Recalculate outcome with secret critical dice
+        const criticalDice = Math.floor(Math.random() * 20) + 1;
+        const criticalThreshold = rollRequest?.criticalThreshold ?? 20;
+        triggerDisplayOutcome(newRolls[0], newRolls[1], criticalDice, criticalThreshold);
+        // Save critical dice to history (keep last 6)
+        setCriticalHistory((prev) => [
+          { value: criticalDice, timestamp: new Date().toLocaleTimeString('pt-BR') },
+          ...prev,
+        ].slice(0, 6));
 
         // Update history with new result
         const attributeConfig = getAttributeRollConfig(rollRequest.attributeValue);
@@ -339,6 +395,9 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     if (isRolling) return;
     if (lastProcessedRollIdRef.current === rollRequest.id) return;
 
+    // Limpar timeouts anteriores de interferência crítica
+    clearCriticalTimeouts();
+
     lastProcessedRollIdRef.current = rollRequest.id;
     setLastAttackWeapon(rollRequest);
     setDisplayMode('skill');
@@ -367,10 +426,18 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
 
       const baseAttributeRoll = rollAttributeValue(rollRequest.attributeValue);
       const baseTrainingRoll = Math.floor(Math.random() * rollRequest.trainingDie) + 1;
+      // Sistema de crítico: rolar d20 secretamente
+      const criticalDice = Math.floor(Math.random() * 20) + 1;
+      const criticalThreshold = rollRequest.criticalThreshold ?? 20;
+      // Save critical dice to history (keep last 6)
+      setCriticalHistory((prev) => [
+        { value: criticalDice, timestamp: new Date().toLocaleTimeString('pt-BR') },
+        ...prev,
+      ].slice(0, 6));
       const finalRolls = [baseAttributeRoll, baseTrainingRoll];
       let total = baseAttributeRoll + baseTrainingRoll;
 
-      triggerDisplayOutcome(baseAttributeRoll, baseTrainingRoll);
+      triggerDisplayOutcome(baseAttributeRoll, baseTrainingRoll, criticalDice, criticalThreshold);
 
 
 
@@ -419,18 +486,29 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     );
   }, [damageRollRequest, isRolling]);
 
+  // Cleanup dos timeouts de interferência crítica ao desmontar
+  useEffect(() => {
+    return () => {
+      clearCriticalTimeouts();
+    };
+  }, []);
+
   return (
     <div className="space-y-4">
       <div
-        className={`border-2 p-4 transition-colors duration-200 ${
-          displayFlash === 'critical'
-            ? 'border-yellow-400 bg-yellow-950/25'
+        className={`border-2 p-4 transition-all duration-700 relative ${
+          criticalInterferencePhase === 'glitch' || criticalInterferencePhase === 'pressagio' || criticalInterferencePhase === 'interference'
+            ? 'border-purple-500 bg-purple-950/40 animate-pulse'
             : displayFlash === 'fail'
               ? 'border-red-300 bg-red-950/25'
               : 'border-red-500 bg-black'
         }`}
       >
         <h3 className="text-xs font-bold text-red-500 uppercase mb-3">Display de Testes</h3>
+
+        <div className={`absolute inset-0 pointer-events-none overflow-hidden rounded-sm transition-opacity duration-700 ${(criticalInterferencePhase === 'glitch' || criticalInterferencePhase === 'pressagio') ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="absolute inset-0 opacity-30 animate-pulse bg-purple-500"></div>
+        </div>
 
         <div className="text-xs text-red-300 border border-red-500 p-2 bg-black/80 mb-3 min-h-14">
           {displayMode === 'skill' && rollRequest ? (
@@ -505,11 +583,21 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
 
         {displayMessage && (
           <div
-            className={`mb-3 text-center text-xs font-bold uppercase ${
-              displayFlash === 'critical' ? 'text-yellow-300' : 'text-red-300'
+            className={`mb-3 text-center text-xs font-bold uppercase transition-all duration-700 ${
+              criticalInterferencePhase === 'interference' ? 'text-purple-300 opacity-100' : 'text-red-300 opacity-100'
             }`}
           >
             {displayMessage}
+          </div>
+        )}
+
+        {pressagioMessage && (
+          <div className={`mb-3 p-2 text-center text-xs italic border-2 transition-all duration-700 ${
+            criticalInterferencePhase === 'pressagio' 
+              ? 'border-purple-500 text-purple-300 animate-pulse opacity-100' 
+              : 'border-yellow-500 text-yellow-300 opacity-0'
+          }`}>
+            &quot;{pressagioMessage}&quot;
           </div>
         )}
 
@@ -584,7 +672,17 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
 
       {history.length > 0 && (
         <div className="border-2 border-red-500 p-4 bg-black">
-          <h3 className="text-xs font-bold text-red-500 uppercase mb-3">Histórico</h3>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="text-xs font-bold text-red-500 uppercase">Histórico</h3>
+            <button
+              onClick={() => setShowCriticalModal(true)}
+              title="Ver críticos"
+              className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-black transition-all flex-shrink-0"
+            >
+              +
+            </button>
+          </div>
+
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {history.map((roll, idx) => (
               <div key={idx} className="p-3 border-2 border-red-500 bg-black text-xs font-mono transition-all">
@@ -593,11 +691,37 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
                   <div className="text-red-400">{roll.timestamp}</div>
                 </div>
                 <div className="text-red-300 mb-1">Total: {roll.total}</div>
-                <div className="text-red-400 text-xs">
-                  Dados: {roll.rolls.map((r) => (r < 0 ? `(${r})` : r)).join(', ')}
-                </div>
+                <div className="text-red-400 text-xs">Dados: {roll.rolls.map((r) => (r < 0 ? `(${r})` : r)).join(', ')}</div>
               </div>
             ))}
+
+            {/* Critical history is shown in a modal opened by the + button */}
+          </div>
+        </div>
+      )}
+      {showCriticalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
+          <div className="w-[90%] max-w-lg bg-black border-2 border-yellow-500 p-4 rounded">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-yellow-400 uppercase">Histórico de Críticos (d20)</h3>
+              <button
+                onClick={() => setShowCriticalModal(false)}
+                className="text-xs py-1 px-2 border-2 rounded bg-red-700 border-red-600 text-white"
+              >Fechar</button>
+            </div>
+
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+              {criticalHistory.length === 0 ? (
+                <div className="text-xs text-gray-400">Nenhum crítico registrado ainda.</div>
+              ) : (
+                criticalHistory.map((c, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs font-mono p-2 border border-yellow-700 bg-black">
+                    <div className="text-yellow-300">{c.value}</div>
+                    <div className="text-yellow-400">{c.timestamp}</div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
