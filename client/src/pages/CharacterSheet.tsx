@@ -35,6 +35,7 @@ interface Pericia {
   id: string;
   name: string;
   training: 'treinado' | 'veterano' | 'expert';
+  isGeneric?: boolean;
 }
 
 interface InventoryItem {
@@ -195,6 +196,24 @@ const SKILL_DICE: Record<string, number> = {
   'Ocultismo': 10,
 };
 
+const GENERIC_PERICIA_ID = '0';
+const GENERIC_PERICIA_NAME = 'Teste sem treinamento';
+
+const ensureGenericPericia = (pericias: Pericia[]): Pericia[] => {
+  const genericPericia: Pericia = {
+    id: GENERIC_PERICIA_ID,
+    name: GENERIC_PERICIA_NAME,
+    training: 'treinado',
+    isGeneric: true,
+  };
+
+  const nonGenericPericias = pericias.filter(
+    (pericia) => !pericia.isGeneric && pericia.id !== GENERIC_PERICIA_ID
+  );
+
+  return [genericPericia, ...nonGenericPericias];
+};
+
 export default function CharacterSheet() {
   const [pendingRoll, setPendingRoll] = useState<SkillRollRequest | null>(null);
   const [pendingDamageRoll, setPendingDamageRoll] = useState<DamageRollRequest | null>(null);
@@ -224,6 +243,7 @@ export default function CharacterSheet() {
     },
     skills: [],
     pericias: [
+      { id: GENERIC_PERICIA_ID, name: GENERIC_PERICIA_NAME, training: 'treinado', isGeneric: true },
       { id: '1', name: 'Luta', training: 'treinado' },
       { id: '2', name: 'Pontaria', training: 'veterano' },
     ],
@@ -326,12 +346,21 @@ export default function CharacterSheet() {
     setCharacter({
       ...character,
       pericias: character.pericias.map((pericia) =>
-        pericia.id === id ? { ...pericia, [field]: value } : pericia
+        pericia.id === id
+          ? pericia.isGeneric
+            ? pericia
+            : { ...pericia, [field]: value }
+          : pericia
       ),
     });
   };
 
   const handleDeletePericia = (id: string) => {
+    const targetPericia = character.pericias.find((pericia) => pericia.id === id);
+    if (!targetPericia || targetPericia.isGeneric || targetPericia.id === GENERIC_PERICIA_ID) {
+      return;
+    }
+
     setCharacter({
       ...character,
       pericias: character.pericias.filter((pericia) => pericia.id !== id),
@@ -344,14 +373,16 @@ export default function CharacterSheet() {
 
     const attributeValue = character.attributes[selectedAttribute];
     const normalizedAttribute = Math.max(0, Math.min(5, attributeValue));
+    const trainingDie = pericia.isGeneric ? 4 : TRAINING_DIE_MAP[pericia.training];
+    const trainingLabel = pericia.isGeneric ? 'Sem treino (1d4)' : TRAINING_LABELS[pericia.training];
 
     setPendingRoll({
       id: Date.now(),
       periciaName: pericia.name || 'Pericia sem nome',
       attributeLabel: ATTRIBUTE_LABELS[selectedAttribute],
-      trainingLabel: TRAINING_LABELS[pericia.training],
+      trainingLabel,
       attributeValue: normalizedAttribute,
-      trainingDie: TRAINING_DIE_MAP[pericia.training],
+      trainingDie,
     });
   };
 
@@ -831,6 +862,7 @@ export default function CharacterSheet() {
           id: pericia.id,
           name: pericia.name,
           training: pericia.training ?? 'treinado',
+          isGeneric: pericia.isGeneric ?? false,
         }))
       : (data.expertises || []).map((expertise) => ({
           id: expertise.id,
@@ -896,7 +928,7 @@ export default function CharacterSheet() {
         vigor: Number(data.attributes?.vigor ?? prev.attributes.vigor ?? 0),
       },
       skills: loadedSkills.length > 0 ? loadedSkills : prev.skills,
-      pericias: loadedPericias.length > 0 ? loadedPericias : prev.pericias,
+      pericias: ensureGenericPericia(loadedPericias.length > 0 ? loadedPericias : prev.pericias),
       rituals: loadedRituals.length > 0 ? loadedRituals : prev.rituals,
       ritualComponents:
         loadedRitualComponents.length > 0 ? loadedRitualComponents : prev.ritualComponents,

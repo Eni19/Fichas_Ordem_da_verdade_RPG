@@ -9,6 +9,7 @@ interface Pericia {
   id: string;
   name: string;
   training: TrainingLevel;
+  isGeneric?: boolean;
 }
 
 interface PericiasProps {
@@ -64,6 +65,7 @@ export default function Pericias({
           ) : (
             pericias.map((pericia) => {
               const isRollMenuActive = pendingRoll?.periciaId === pericia.id;
+              const isGeneric = pericia.isGeneric ?? false;
 
               return (
               <div
@@ -77,7 +79,10 @@ export default function Pericias({
                     type="text"
                     value={pericia.name}
                     onChange={(e) => onUpdatePericia(pericia.id, 'name', e.target.value)}
+                    disabled={isGeneric}
                     className={`flex-1 min-w-0 bg-transparent border font-display text-sm focus:outline-none focus:ring-0 uppercase px-2 py-1 h-8 transition-colors duration-200 ${
+                      isGeneric ? 'cursor-not-allowed opacity-75' : ''
+                    } ${
                       isRollMenuActive
                         ? 'border-black text-black placeholder:text-black'
                         : 'border-primary text-primary group-hover:border-black group-hover:text-black group-hover:placeholder:text-black'
@@ -85,21 +90,29 @@ export default function Pericias({
                     placeholder="Nome"
                   />
 
-                  <select
-                    value={pericia.training}
-                    onChange={(e) => onUpdatePericia(pericia.id, 'training', e.target.value)}
+                  <div
                     className={`w-36 border text-sm p-1 focus:outline-none h-8 transition-colors duration-200 ${
                       isRollMenuActive
                         ? 'bg-primary border-black text-black'
                         : 'bg-input border-primary text-primary group-hover:bg-primary group-hover:border-black group-hover:text-black'
                     }`}
                   >
-                    {TRAINING_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value} className="bg-black text-primary">
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    {isGeneric ? (
+                      <span className="h-full flex items-center text-xs">Sem treino (1d4)</span>
+                    ) : (
+                      <select
+                        value={pericia.training}
+                        onChange={(e) => onUpdatePericia(pericia.id, 'training', e.target.value)}
+                        className="w-full bg-transparent h-full"
+                      >
+                        {TRAINING_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value} className="bg-black text-primary">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
 
                   <button
                     onClick={() =>
@@ -118,17 +131,21 @@ export default function Pericias({
                     Rolar
                   </button>
 
-                  <button
-                    onClick={() => onDeletePericia(pericia.id)}
-                    className={`transition-colors p-0 flex-shrink-0 h-8 w-8 border flex items-center justify-center ${
-                      isRollMenuActive
-                        ? 'text-black border-black hover:text-secondary'
-                        : 'text-primary border-primary hover:text-secondary group-hover:text-black group-hover:border-black'
-                    }`}
-                    aria-label="Remover pericia"
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                  {!isGeneric && (
+                    <button
+                      onClick={() => onDeletePericia(pericia.id)}
+                      className={`transition-colors p-0 flex-shrink-0 h-8 w-8 border flex items-center justify-center ${
+                        isRollMenuActive
+                          ? 'text-black border-black hover:text-secondary'
+                          : 'text-primary border-primary hover:text-secondary group-hover:text-black group-hover:border-black'
+                      }`}
+                      aria-label="Remover pericia"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+
+                  {isGeneric && <div className="h-8 w-8 flex-shrink-0" aria-hidden="true" />}
                 </div>
 
                 {pendingRoll?.periciaId === pericia.id && (

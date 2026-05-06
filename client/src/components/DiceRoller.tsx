@@ -61,6 +61,8 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
   const maxDice = 10;
   const lastProcessedDamageRollIdRef = useRef<number | null>(null);
   const criticalTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const lastCriticalDiceRef = useRef<number>(20);
+  const lastCriticalThresholdRef = useRef<number>(20);
 
   const getAttributeRollConfig = (attributeValue: number) => {
     switch (attributeValue) {
@@ -117,6 +119,10 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     criticalDice: number = 20,
     criticalThreshold: number = 20
   ) => {
+    // Armazenar o d20 e threshold para uso em re-rolls
+    lastCriticalDiceRef.current = criticalDice;
+    lastCriticalThresholdRef.current = criticalThreshold;
+
     // Limpar timeouts antigos de interferência crítica
     clearCriticalTimeouts();
 
@@ -145,14 +151,14 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
         setCriticalInterferencePhase('pressagio');
       }, 3500);
       
-      // Fase 3: depois 4s mais (total 7.5s), mostrar interferência crítica
+      // Fase 3: depois 5s mais (total 8.5s), mostrar interferência crítica
       const timeout3 = setTimeout(() => {
         setPressagioMessage(null);
         setDisplayMessage('Interferência Crítica!');
         setDisplayFlash(null);
         setIsCritical(true);
         setCriticalInterferencePhase('interference');
-      }, 7500);
+      }, 8500);
 
       // Armazenar os timeouts para limpeza posterior
       criticalTimeoutsRef.current = [timeout1, timeout2, timeout3];
@@ -258,15 +264,16 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
           newRolls[1] = Math.floor(Math.random() * rollRequest.trainingDie) + 1;
         }
 
-        // Recalculate outcome with secret critical dice
-        const criticalDice = Math.floor(Math.random() * 20) + 1;
-        const criticalThreshold = rollRequest?.criticalThreshold ?? 20;
-        triggerDisplayOutcome(newRolls[0], newRolls[1], criticalDice, criticalThreshold);
-        // Save critical dice to history (keep last 6)
-        setCriticalHistory((prev) => [
-          { value: criticalDice, timestamp: new Date().toLocaleTimeString('pt-BR') },
-          ...prev,
-        ].slice(0, 6));
+        // Se já estamos em animação de interferência crítica, não reiniciá-la
+        if (criticalInterferencePhase !== 'none' && criticalInterferencePhase !== 'normal') {
+          // Apenas atualiza o resultado, sem reiniciar a animação
+          // A animação continua de onde estava
+        } else {
+          // Usar o d20 anterior (não rolar um novo)
+          const criticalDice = lastCriticalDiceRef.current;
+          const criticalThreshold = lastCriticalThresholdRef.current;
+          triggerDisplayOutcome(newRolls[0], newRolls[1], criticalDice, criticalThreshold);
+        }
 
         // Update history with new result
         const attributeConfig = getAttributeRollConfig(rollRequest.attributeValue);
