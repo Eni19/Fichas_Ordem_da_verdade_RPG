@@ -18,6 +18,7 @@ export default function SaveLoad({ characterData, onLoadCharacter }: SaveLoadPro
       hp: characterData.hp,
       sanity: characterData.sanity,
       hope: characterData.hope,
+      evasion: characterData.evasion,
       inventory: characterData.inventory,
       weapons: characterData.weapons,
       insanities: characterData.insanities,

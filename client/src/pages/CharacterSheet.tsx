@@ -5,6 +5,7 @@ import DiceRoller from '@/components/DiceRoller';
 import VitalStats from '@/components/VitalStats';
 import Pericias from '@/components/Pericias';
 import HopeCounter from '@/components/HopeCounter';
+import EvasionPanel, { type EvasionProtection } from '@/components/EvasionPanel';
 import InventoryPanel from '@/components/InventoryPanel';
 import InsanityPanel from '@/components/InsanityPanel';
 import RitualsPanel from '@/components/RitualsPanel';
@@ -144,6 +145,11 @@ interface CharacterData {
   hp: { current: number; max: number };
   sanity: { current: number; max: number };
   hope: number;
+  evasion: {
+    protection: EvasionProtection;
+    defensiveCharges: number;
+    maxDefensiveCharges: number;
+  };
   inventory: InventoryItem[];
   weapons: Weapon[];
   insanities: Insanity[];
@@ -249,6 +255,11 @@ export default function CharacterSheet() {
     hp: { current: 20, max: 20 },
     sanity: { current: 10, max: 10 },
     hope: 3,
+    evasion: {
+      protection: 'none',
+      defensiveCharges: 3,
+      maxDefensiveCharges: 2,
+    },
     inventory: [],
     weapons: [
       {
@@ -420,6 +431,40 @@ export default function CharacterSheet() {
 
   const handleHopeChange = (value: number) => {
     setCharacter({ ...character, hope: value });
+  };
+
+  const handleEvasionProtectionChange = (value: EvasionProtection) => {
+    setCharacter((prev) => ({
+      ...prev,
+      evasion: {
+        ...prev.evasion,
+        protection: value,
+      },
+    }));
+  };
+
+  const handleDefensiveChargesChange = (value: number) => {
+    setCharacter((prev) => {
+      const maxValue = (1 << prev.evasion.maxDefensiveCharges) - 1;
+      return {
+        ...prev,
+        evasion: {
+          ...prev.evasion,
+          defensiveCharges: Math.max(0, Math.min(maxValue, value)),
+        },
+      };
+    });
+  };
+
+  const handleMaxDefensiveChargesChange = (value: number) => {
+    setCharacter((prev) => ({
+      ...prev,
+      evasion: {
+        ...prev.evasion,
+        maxDefensiveCharges: Math.max(1, Math.min(4, value)),
+        defensiveCharges: Math.max(0, Math.min((1 << value) - 1, prev.evasion.defensiveCharges)),
+      },
+    }));
   };
 
   const handleAddInventoryItem = () => {
@@ -936,6 +981,17 @@ export default function CharacterSheet() {
       rituals: loadedRituals.length > 0 ? loadedRituals : prev.rituals,
       ritualComponents:
         loadedRitualComponents.length > 0 ? loadedRitualComponents : prev.ritualComponents,
+      evasion: {
+        protection: data.evasion?.protection ?? prev.evasion.protection,
+        defensiveCharges: Math.max(
+          0,
+          Math.min((1 << (data.evasion?.maxDefensiveCharges ?? prev.evasion.maxDefensiveCharges)) - 1, Number(data.evasion?.defensiveCharges ?? prev.evasion.defensiveCharges))
+        ),
+        maxDefensiveCharges: Math.max(
+          1,
+          Math.min(4, Number(data.evasion?.maxDefensiveCharges ?? prev.evasion.maxDefensiveCharges))
+        ),
+      },
       primaryWeapon: normalizeWeapon(data.primaryWeapon, prev.primaryWeapon),
       secondaryWeapon: normalizeWeapon(data.secondaryWeapon, prev.secondaryWeapon),
     }));
@@ -960,7 +1016,7 @@ export default function CharacterSheet() {
           onLoadCharacter={handleLoadCharacter}
         />
 
-        {/* Vitals + Hope Row - Stack on mobile */}
+        {/* Vitals + Hope + Evasion Row - Stack on mobile */}
         <div className="flex flex-col md:flex-row gap-2 md:gap-4">
           <div className="flex-1 min-w-0">
             <VitalStats
@@ -975,6 +1031,17 @@ export default function CharacterSheet() {
               current={character.hope}
               onChange={handleHopeChange}
             />
+            <div className="mt-2">
+              <EvasionPanel
+                agility={character.attributes.agilidade}
+                protection={character.evasion.protection}
+                defensiveCharges={character.evasion.defensiveCharges}
+                maxDefensiveCharges={character.evasion.maxDefensiveCharges}
+                onProtectionChange={handleEvasionProtectionChange}
+                onDefensiveChargesChange={handleDefensiveChargesChange}
+                onMaxDefensiveChargesChange={handleMaxDefensiveChargesChange}
+              />
+            </div>
           </div>
         </div>
       </div>
