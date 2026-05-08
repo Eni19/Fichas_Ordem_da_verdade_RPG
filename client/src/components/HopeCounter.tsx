@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 import { HopeUseDialog } from '@/components/HopeUseDialog';
 import { HopeUse } from '@/data/hope_use';
 
@@ -35,8 +35,16 @@ export default function HopeCounter({ current, onChange }: HopeCounterProps) {
       <div className="card-occult space-y-2">
         <h3 className="font-display text-sm text-primary uppercase">Esperança</h3>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-1 justify-center">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={handleDecrement}
+            disabled={current === 0}
+            className="btn-occult p-1 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+          >
+            <Minus size={16} />
+          </button>
+
+          <div className="flex gap-1 justify-center flex-1">
             {Array.from({ length: MAX_HOPE }).map((_, index) => (
               <div
                 key={index}
@@ -55,22 +63,13 @@ export default function HopeCounter({ current, onChange }: HopeCounterProps) {
             ))}
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={handleDecrement}
-              disabled={current === 0}
-              className="flex-1 btn-occult py-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-mono"
-            >
-              Usar Esperança
-            </button>
-            <button
-              onClick={handleIncrement}
-              disabled={current === MAX_HOPE}
-              className="btn-occult p-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
+          <button
+            onClick={handleIncrement}
+            disabled={current === MAX_HOPE}
+            className="btn-occult p-1 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+          >
+            <Plus size={16} />
+          </button>
         </div>
 
         <div className="text-center">

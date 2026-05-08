@@ -44,12 +44,11 @@ export function HopeUseDialog({
           {hopeUses.map((use) => (
             <div
               key={use.id}
-              className={`p-4 cursor-pointer border-2 transition-all duration-200 ${
+              className={`p-4 border-2 transition-all duration-200 ${
                 selectedId === use.id
                   ? 'border-primary bg-primary bg-opacity-10'
-                  : 'border-primary bg-card hover:bg-opacity-5'
+                  : 'border-primary bg-card hover:bg-opacity-5 cursor-default'
               }`}
-              onClick={() => handleSelect(use)}
             >
               <div className="flex justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
@@ -60,8 +59,16 @@ export function HopeUseDialog({
                     {use.efeito}
                   </p>
                 </div>
-                <div className="flex-shrink-0 text-xs font-mono font-bold text-foreground bg-primary px-2 py-1">
-                  -{use.custo}
+                <div className="flex-shrink-0">
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelect(use);
+                    }}
+                    className="text-xs font-mono font-bold bg-primary text-black px-3 py-1"
+                  >
+                    Usar Esperança
+                  </Button>
                 </div>
               </div>
             </div>
