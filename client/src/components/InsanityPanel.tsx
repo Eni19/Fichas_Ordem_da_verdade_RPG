@@ -5,6 +5,7 @@ interface Insanity {
   id: string;
   name: string;
   description: string;
+  type: 'fobia' | 'mania' | 'surto';
 }
 
 interface ParanormalPower {
@@ -22,6 +23,7 @@ interface InsanityPanelProps {
   onInsanityAdd: (insanity: Insanity) => void;
   onInsanityRemove: (id: string) => void;
   onInsanityUpdate: (id: string, insanity: Insanity) => void;
+  onInsanityInvoke?: (insanity: Insanity) => void;
   onPowerAdd: (power: ParanormalPower) => void;
   onPowerRemove: (id: string) => void;
   onPowerUpdate: (id: string, power: ParanormalPower) => void;
@@ -36,6 +38,7 @@ export default function InsanityPanel({
   onInsanityAdd,
   onInsanityRemove,
   onInsanityUpdate,
+  onInsanityInvoke,
   onPowerAdd,
   onPowerRemove,
   onPowerUpdate,
@@ -44,6 +47,7 @@ export default function InsanityPanel({
   const [showPowerForm, setShowPowerForm] = useState(false);
   const [newInsanityName, setNewInsanityName] = useState('');
   const [newInsanityDesc, setNewInsanityDesc] = useState('');
+  const [newInsanityType, setNewInsanityType] = useState<Insanity['type']>('fobia');
   const [newPowerName, setNewPowerName] = useState('');
   const [newPowerDesc, setNewPowerDesc] = useState('');
 
@@ -58,10 +62,12 @@ export default function InsanityPanel({
         id: Date.now().toString(),
         name: newInsanityName,
         description: newInsanityDesc,
+        type: newInsanityType,
       };
       onInsanityAdd(newInsanity);
       setNewInsanityName('');
       setNewInsanityDesc('');
+        setNewInsanityType('fobia');
       setShowInsanityForm(false);
     }
   };
@@ -132,6 +138,9 @@ export default function InsanityPanel({
                       className="bg-black text-orange-200 text-sm font-bold border-b border-orange-500 outline-none flex-1"
                       placeholder="Nome"
                     />
+                    <div className="ml-2 text-[10px] px-2 py-0.5 uppercase font-bold text-orange-300 border border-orange-500 rounded">
+                      {insanity.type}
+                    </div>
                     <button
                       onClick={() => onInsanityRemove(insanity.id)}
                       className="text-orange-400 hover:text-orange-300 ml-2"
@@ -149,6 +158,14 @@ export default function InsanityPanel({
                     rows={2}
                     placeholder="Descrição"
                   />
+                  <div className="mt-2">
+                    <button
+                      onClick={() => onInsanityInvoke ? onInsanityInvoke(insanity) : window.alert(`Invocando ${insanity.name} (${insanity.type})`)}
+                      className="w-full bg-orange-500 text-black font-bold py-1 uppercase text-xs"
+                    >
+                      Invocar Insanidade
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -171,6 +188,32 @@ export default function InsanityPanel({
                   rows={2}
                   placeholder="Descrição"
                 />
+                <div className="flex items-center gap-2 text-xs uppercase font-bold">
+                  <div className="text-[10px] text-orange-400">Tipo:</div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setNewInsanityType('fobia')}
+                      className={`px-2 py-1 text-xs rounded cursor-pointer ${newInsanityType === 'fobia' ? 'bg-orange-500 text-black border border-orange-500' : 'bg-black text-orange-300 border border-orange-500 hover:bg-orange-500/20'}`}
+                    >
+                      Fobia
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewInsanityType('mania')}
+                      className={`px-2 py-1 text-xs rounded cursor-pointer ${newInsanityType === 'mania' ? 'bg-orange-500 text-black border border-orange-500' : 'bg-black text-orange-300 border border-orange-500 hover:bg-orange-500/20'}`}
+                    >
+                      Mania
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewInsanityType('surto')}
+                      className={`px-2 py-1 text-xs rounded cursor-pointer ${newInsanityType === 'surto' ? 'bg-orange-500 text-black border border-orange-500' : 'bg-black text-orange-300 border border-orange-500 hover:bg-orange-500/20'}`}
+                    >
+                      Surto
+                    </button>
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={addInsanity}

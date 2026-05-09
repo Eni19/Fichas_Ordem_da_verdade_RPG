@@ -78,6 +78,7 @@ interface Insanity {
   id: string;
   name: string;
   description: string;
+  type: 'fobia' | 'mania' | 'surto';
 }
 
 interface ParanormalPower {
@@ -861,6 +862,11 @@ export default function CharacterSheet() {
     });
   };
 
+  const handleInvokeInsanity = (insanity: Insanity) => {
+    const gain = insanity.type === 'fobia' ? 2 : 1;
+    setCharacter((prev) => ({ ...prev, hope: Math.min(prev.hope + gain, 3) }));
+  };
+
   const handleLoadCharacter = (
     data: Partial<Omit<CharacterData, 'rituals'>> & {
       expertises?: Array<{ id: string; name: string }>;
@@ -1130,6 +1136,7 @@ export default function CharacterSheet() {
         onInsanityAdd={handleAddInsanity}
         onInsanityRemove={handleRemoveInsanity}
         onInsanityUpdate={handleUpdateInsanity}
+        onInsanityInvoke={handleInvokeInsanity}
         onPowerAdd={handleAddPower}
         onPowerRemove={handleRemovePower}
         onPowerUpdate={handleUpdatePower}
@@ -1157,21 +1164,21 @@ export default function CharacterSheet() {
       {/* Resolve Ritual Modal */}
       {ritualResolveState && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl border-2 border-cyan-500 bg-black p-4 space-y-4">
+          <div className="w-full max-w-2xl border-2 border-purple-500 bg-black p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg text-cyan-300 uppercase">Resolver Ritual</h3>
-              <button onClick={handleCloseResolve} className="text-xs text-cyan-300 border border-cyan-500 px-2 py-1">Fechar</button>
+              <h3 className="font-display text-lg text-purple-300 uppercase">Resolver Ritual</h3>
+              <button onClick={handleCloseResolve} className="text-xs text-purple-300 border border-purple-500 px-2 py-1">Fechar</button>
             </div>
 
             {!ritualResolveState.rolls || ritualResolveState.isRolling === undefined ? (
               <div className="space-y-2">
-                <div className="text-xs text-cyan-200">Escolha atributo</div>
+                <div className="text-xs text-purple-200">Escolha atributo</div>
                 <div className="grid grid-cols-3 gap-2">
                   {ATTRIBUTE_KEYS.map((key) => (
                     <button
                       key={key}
                       onClick={() => setRitualResolveState((prev) => (prev ? { ...prev, selectedAttribute: key } : prev))}
-                      className={`py-2 text-xs uppercase border ${ritualResolveState.selectedAttribute === key ? 'bg-cyan-500 text-black' : 'text-cyan-300 border-cyan-500'}`}
+                      className={`py-2 text-xs uppercase border ${ritualResolveState.selectedAttribute === key ? 'bg-purple-500 text-black' : 'text-purple-300 border-purple-500'}`}
                     >
                       {ATTRIBUTE_LABELS[key]}
                     </button>
@@ -1179,11 +1186,11 @@ export default function CharacterSheet() {
                 </div>
 
                 <div>
-                  <div className="text-xs text-cyan-200">Escolha pericia</div>
+                  <div className="text-xs text-purple-200">Escolha pericia</div>
                   <select
                     value={ritualResolveState.selectedPericiaId ?? ''}
                     onChange={(e) => setRitualResolveState((prev) => (prev ? { ...prev, selectedPericiaId: e.target.value } : prev))}
-                    className="w-full bg-black border border-cyan-500 p-2 text-cyan-200"
+                    className="w-full bg-black border border-purple-500 p-2 text-purple-200"
                   >
                     <option value="">(usar primeira)</option>
                     {character.pericias.map((p) => (
@@ -1195,35 +1202,35 @@ export default function CharacterSheet() {
                 <div className="flex gap-2">
                   <button
                     onClick={handlePerformResolveRoll}
-                    className="flex-1 bg-cyan-500 text-black py-2 uppercase font-bold"
+                    className="flex-1 bg-purple-500 text-black py-2 uppercase font-bold"
                   >
                     Rolar
                   </button>
-                  <button onClick={handleCloseResolve} className="flex-1 border border-cyan-500 text-cyan-300 py-2 uppercase">Cancelar</button>
+                  <button onClick={handleCloseResolve} className="flex-1 border border-purple-500 text-purple-300 py-2 uppercase">Cancelar</button>
                 </div>
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="text-xs text-cyan-200 uppercase">Resultado</div>
+                <div className="text-xs text-purple-200 uppercase">Resultado</div>
                 <div className="flex gap-3">
                   <div className="h-16 w-16 border-2 border-blue-500 flex items-center justify-center text-2xl font-bold">{ritualResolveState.rolls?.[0]}</div>
                   <div className="h-16 w-16 border-2 border-purple-600 flex items-center justify-center text-2xl font-bold">{ritualResolveState.rolls?.[1]}</div>
                   <div className="flex-1 border-2 border-red-500 p-3">
-                    <div className="text-sm font-bold text-cyan-200">Total: {ritualResolveState.total}</div>
+                    <div className="text-sm font-bold text-purple-200">Total: {ritualResolveState.total}</div>
                     <div className={`mt-1 text-xs font-bold ${ritualResolveState.passed ? 'text-green-400' : 'text-red-400'}`}>{ritualResolveState.passed ? 'Sucesso' : 'Falha'}</div>
-                    <div className="text-[10px] text-cyan-300 mt-2">Dificuldade: {ritualResolveState.difficulty}</div>
+                    <div className="text-[10px] text-purple-300 mt-2">Dificuldade: {ritualResolveState.difficulty}</div>
                   </div>
                 </div>
 
-                <div className="border border-cyan-500 p-3">
-                  <div className="text-xs text-cyan-200 uppercase font-bold">Efeito do Ritual</div>
-                  <div className="mt-2 text-sm text-cyan-100">{(character.rituals.find((r) => r.id === ritualResolveState.ritualId)?.versions[0]?.description) || 'Descrição do ritual'}</div>
-                  <div className="mt-2 text-[10px] text-cyan-300">Símbolo: {ritualConjureState?.selectedSymbol?.simbolo ?? 'Nenhum'}</div>
-                  <div className="mt-1 text-[10px] text-cyan-300">Componentes: Nenhum selecionado</div>
+                <div className="border border-purple-500 p-3">
+                  <div className="text-xs text-purple-200 uppercase font-bold">Efeito do Ritual</div>
+                  <div className="mt-2 text-sm text-purple-100">{(character.rituals.find((r) => r.id === ritualResolveState.ritualId)?.versions[0]?.description) || 'Descrição do ritual'}</div>
+                  <div className="mt-2 text-[10px] text-purple-300">Símbolo: {ritualConjureState?.selectedSymbol?.simbolo ?? 'Nenhum'}</div>
+                  <div className="mt-1 text-[10px] text-purple-300">Componentes: Nenhum selecionado</div>
                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={handleCloseResolve} className="flex-1 bg-cyan-500 text-black py-2 uppercase font-bold">Fechar</button>
+                  <button onClick={handleCloseResolve} className="flex-1 bg-purple-500 text-black py-2 uppercase font-bold">Fechar</button>
                 </div>
               </div>
             )}
