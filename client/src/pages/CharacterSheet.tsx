@@ -1491,18 +1491,29 @@ export default function CharacterSheet() {
               <div className="text-[10px] text-purple-400 uppercase font-bold">
                 {fearRouletteState.isRolling ? 'Sorteando medo...' : `Resultado final: ${fearRouletteState.total}`}
               </div>
-              <div className={`text-lg font-display uppercase ${fearRouletteState.isRolling ? 'text-purple-400 animate-pulse' : 'text-purple-200'}`}>
-                {(fearRouletteState.isRolling
-                  ? fearEffects[fearRouletteState.displayIndex]
-                  : fearRouletteState.finalEffect
-                )?.nome}
-              </div>
-              <div className="text-xs text-purple-100/80 leading-relaxed">
-                {(fearRouletteState.isRolling
-                  ? fearEffects[fearRouletteState.displayIndex]
-                  : fearRouletteState.finalEffect
-                )?.descricaoMecanica}
-              </div>
+                <div className="space-y-2">
+                  <div className={`text-sm uppercase tracking-wider font-display ${fearRouletteState.isRolling ? 'text-purple-300' : 'text-purple-200'}`}>
+                    {(fearRouletteState.isRolling
+                      ? fearEffects[fearRouletteState.displayIndex]
+                      : fearRouletteState.finalEffect
+                    )?.nome}
+                  </div>
+
+                  <div className={`text-base md:text-lg font-display ${fearRouletteState.isRolling ? 'text-purple-300 animate-pulse' : 'text-purple-100'}`}>
+                    {(fearRouletteState.isRolling
+                      ? fearEffects[fearRouletteState.displayIndex]
+                      : fearRouletteState.finalEffect
+                    )?.descricaoNarrativa}
+                  </div>
+
+                  <div className="text-[10px] uppercase text-purple-400 font-bold">Efeito Mecânico</div>
+                  <div className="text-xs text-purple-200/60 leading-relaxed">
+                    {(fearRouletteState.isRolling
+                      ? fearEffects[fearRouletteState.displayIndex]
+                      : fearRouletteState.finalEffect
+                    )?.descricaoMecanica}
+                  </div>
+                </div>
             </div>
 
             {!fearRouletteState.isRolling && fearRouletteState.finalEffect?.resultado === '2' && (
