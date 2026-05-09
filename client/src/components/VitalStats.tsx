@@ -1,10 +1,17 @@
 import { Minus, Plus } from 'lucide-react';
 
+interface FearTagChip {
+  id: string;
+  label: string;
+}
+
 interface VitalStatsProps {
   hp: { current: number; max: number };
   sanity: { current: number; max: number };
   onHpChange: (field: 'current' | 'max', value: number) => void;
   onSanityChange: (field: 'current' | 'max', value: number) => void;
+  fearTags?: FearTagChip[];
+  onFearTagClick?: (id: string) => void;
 }
 
 export default function VitalStats({
@@ -12,6 +19,8 @@ export default function VitalStats({
   sanity,
   onHpChange,
   onSanityChange,
+  fearTags = [],
+  onFearTagClick,
 }: VitalStatsProps) {
   const hpPercent = hp.max > 0 ? (hp.current / hp.max) * 100 : 0;
   const sanityPercent = sanity.max > 0 ? (sanity.current / sanity.max) * 100 : 0;
@@ -101,6 +110,21 @@ export default function VitalStats({
             className="w-12 h-10 bg-input border-2 border-primary text-primary text-center focus:outline-none focus:ring-2 focus:ring-primary text-sm p-1"
             min="0"
           />
+          {fearTags.length > 0 && (
+            <div className="ml-1 flex-1 min-w-0 overflow-x-auto">
+              <div className="flex gap-1 w-max">
+                {fearTags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    onClick={() => onFearTagClick?.(tag.id)}
+                    className="px-2 h-7 text-[10px] uppercase border border-purple-500 text-purple-200 bg-purple-950/20 hover:bg-purple-500/20 whitespace-nowrap"
+                  >
+                    {tag.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="w-full bg-black border border-primary h-3 overflow-hidden">
           <div

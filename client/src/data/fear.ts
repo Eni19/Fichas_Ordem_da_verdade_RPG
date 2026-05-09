@@ -20,7 +20,7 @@ const fearEffects: FearEffect[] = [
     descricaoNarrativa:
       'Seu corpo assume o controle. O medo acelera seus músculos, seus reflexos e seus impulsos, mas sua mente perde clareza.',
     descricaoMecanica:
-      'Até o fim da cena ou até recuperar Sanidade, aumente em 1 passo seus dados de Força e Agilidade. Porém, reduza em 1 passo seus dados de Inteligência e Presença. Além disso, você sofre -3 em testes que exijam calma, paciência ou delicadeza.',
+      'Até o fim da cena, aumente em 1 passo seus dados de Força e Agilidade. Porém, reduza em 1 passo seus dados de Inteligência e Presença. Além disso, você sofre -3 em testes que exijam calma, paciência ou delicadeza.',
   },
   {
     resultado: '4',
@@ -28,7 +28,7 @@ const fearEffects: FearEffect[] = [
     descricaoNarrativa:
       'Você trava, gagueja ou perde o momento certo. Seu corpo demora demais para obedecer.',
     descricaoMecanica:
-      'Até recuperar Sanidade, reduza em 1 passo seu dado de Agilidade para testes de reação, fuga, perseguição, iniciativa, equilíbrio e ações feitas sob pressão imediata. Além disso, na próxima situação urgente, você age depois dos demais envolvidos.',
+      'Até o fim da cena, reduza em 1 passo seu dado de Agilidade para testes de reação, fuga, perseguição, iniciativa, equilíbrio e ações feitas sob pressão imediata. Além disso, na próxima situação urgente, você age depois dos demais envolvidos.',
   },
   {
     resultado: '5',
@@ -36,7 +36,7 @@ const fearEffects: FearEffect[] = [
     descricaoNarrativa:
       'O medo atinge seu corpo. Você começa a passar mal, suar frio e sentir suas forças abandonando seus membros.',
     descricaoMecanica:
-      'Até recuperar Sanidade, reduza em 1 passo seus dados de Força. Além disso, você fica limitado a uma única ação por turno.',
+      'Até o fim da cena, reduza em 1 passo seus dados de Força. Além disso, você fica limitado a uma única ação por turno.',
   },
   {
     resultado: '6',
@@ -44,7 +44,7 @@ const fearEffects: FearEffect[] = [
     descricaoNarrativa:
       'Sua memória fica instável. Pensamentos escapam, eventos recentes se embaralham e conexões óbvias parecem distantes.',
     descricaoMecanica:
-      'Até recuperar Sanidade, reduza em 1 passo seu dado de Inteligência. Além disso, você tem dificuldade para lembrar, conectar pistas, interpretar símbolos, reconstruir eventos ou explicar algo que presenciou.',
+      'Até o fim da cena, reduza em 1 passo seu dado de Inteligência. Além disso, você tem dificuldade para lembrar, conectar pistas, interpretar símbolos, reconstruir eventos ou explicar algo que presenciou.',
   },
   {
     resultado: '7',
@@ -124,7 +124,7 @@ const fearEffects: FearEffect[] = [
     descricaoNarrativa:
       'Você precisa sobreviver. Todo o resto parece secundário diante da urgência de continuar vivo.',
     descricaoMecanica:
-      'Até recuperar Sanidade, você não pode gastar suas ações ou recursos para ajudar outro personagem se isso colocar você em risco direto.',
+      'Até o fim da cena, você não pode gastar suas ações ou recursos para ajudar outro personagem se isso colocar você em risco direto.',
   },
   {
     resultado: '17',
@@ -148,7 +148,7 @@ const fearEffects: FearEffect[] = [
     descricaoNarrativa:
       'O medo ultrapassa sua capacidade de reagir. Você se sente distante do próprio corpo, como se estivesse assistindo à cena acontecer com outra pessoa.',
     descricaoMecanica:
-      'Até recuperar Sanidade ou ser acalmado, você não reconhece a fonte do medo como ameaça, a menos que ela cause dano direto a você. Enquanto estiver dissociado, sofre -5 em testes para reagir com urgência, fugir, pedir ajuda, alertar aliados, proteger alguém ou interromper a fonte do medo. Você recebe +3 em testes para suportar dor, encarar cenas horríveis, permanecer imóvel, mentir sobre seu estado emocional ou observar a fonte do medo sem demonstrar reação. Se alguém chamar seu nome, tocar em você ou te confrontar diretamente, você pode fazer um teste de Vontade para ignorar a Dissociação naquela rodada.',
+      'Até o fim da cena ou ser acalmado, você não reconhece a fonte do medo como ameaça, a menos que ela cause dano direto a você. Enquanto estiver dissociado, sofre -5 em testes para reagir com urgência, fugir, pedir ajuda, alertar aliados, proteger alguém ou interromper a fonte do medo. Você recebe +3 em testes para suportar dor, encarar cenas horríveis, permanecer imóvel, mentir sobre seu estado emocional ou observar a fonte do medo sem demonstrar reação. Se alguém chamar seu nome, tocar em você ou te confrontar diretamente, você pode fazer um teste de Vontade para ignorar a Dissociação naquela rodada.',
   },
   {
     resultado: '20+',
