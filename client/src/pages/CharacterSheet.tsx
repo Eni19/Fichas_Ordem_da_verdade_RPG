@@ -217,10 +217,30 @@ const TRAINING_DIE_MAP: Record<Pericia['training'], number> = {
   expert: 10,
 };
 
-const TRAINING_LABELS: Record<Pericia['training'], string> = {
-  treinado: 'Treinado',
-  veterano: 'Veterano',
-  expert: 'Expert',
+const TRAINING_DICE_STEPS = [4, 6, 8, 10] as const;
+
+const getTrainingLabelForDie = (trainingDie: number): string => {
+  switch (trainingDie) {
+    case 4:
+      return 'Sem treino (1d4)';
+    case 6:
+      return 'Treinado (1d6)';
+    case 8:
+      return 'Veterano (1d8)';
+    case 10:
+      return 'Expert (1d10)';
+    default:
+      return `1d${trainingDie}`;
+  }
+};
+
+const getReducedTrainingDie = (trainingDie: number): number => {
+  const currentIndex = TRAINING_DICE_STEPS.indexOf(trainingDie as (typeof TRAINING_DICE_STEPS)[number]);
+  if (currentIndex <= 0) {
+    return TRAINING_DICE_STEPS[0];
+  }
+
+  return TRAINING_DICE_STEPS[currentIndex - 1];
 };
 
 const SKILL_DICE: Record<string, number> = {
@@ -383,6 +403,34 @@ export default function CharacterSheet() {
     return Math.max(0, Math.min(5, modified));
   };
 
+  const getConfusionAdjustedAttribute = (attribute: AttributeKey) => {
+    const isConfused = activeFearTags.some((tag) => tag.effectResult === '13');
+
+    if (!isConfused || attribute === 'vigor') {
+      return { attribute, wasSwapped: false };
+    }
+
+    if (Math.random() < 0.5) {
+      return { attribute, wasSwapped: false };
+    }
+
+    const swappedAttribute: AttributeKey =
+      attribute === 'força'
+        ? 'agilidade'
+        : attribute === 'agilidade'
+          ? 'força'
+          : attribute === 'inteligência'
+            ? 'presença'
+            : 'inteligência';
+
+    return { attribute: swappedAttribute, wasSwapped: true };
+  };
+
+  const getDespairAdjustedTrainingDie = (trainingDie: number) => {
+    const hasDespair = activeFearTags.some((tag) => tag.effectResult === '11');
+    return hasDespair ? getReducedTrainingDie(trainingDie) : trainingDie;
+  };
+
   const closeFearRoulette = () => {
     setFearRouletteState(createInitialFearRouletteState());
     setFearResultAttributeChoice(null);
@@ -422,7 +470,7 @@ export default function CharacterSheet() {
     setFearTagPendingRemoval((prev) => (prev?.id === id ? null : prev));
   };
 
-  const toggleFearDebugCondition = (result: '2' | '3' | '4' | '5' | '6' | '7' | '8' | '10') => {
+  const toggleFearDebugCondition = (result: '2' | '3' | '4' | '5' | '6' | '7' | '8' | '10' | '11' | '13') => {
     const existing = activeFearTags.find(
       (tag) =>
         tag.sourceInsanityId === 'debug-fear' &&
@@ -560,14 +608,18 @@ export default function CharacterSheet() {
     const pericia = character.pericias.find((p) => p.id === id);
     if (!pericia) return;
 
-    const normalizedAttribute = getEffectiveAttributeValue(selectedAttribute as AttributeKey);
-    const trainingDie = pericia.isGeneric ? 4 : TRAINING_DIE_MAP[pericia.training];
-    const trainingLabel = pericia.isGeneric ? 'Sem treino (1d4)' : TRAINING_LABELS[pericia.training];
+    const selectedAttributeKey = selectedAttribute as AttributeKey;
+    const adjustedAttribute = getConfusionAdjustedAttribute(selectedAttributeKey);
+    const normalizedAttribute = getEffectiveAttributeValue(adjustedAttribute.attribute);
+
+    const baseTrainingDie = pericia.isGeneric ? 4 : TRAINING_DIE_MAP[pericia.training];
+    const trainingDie = getDespairAdjustedTrainingDie(baseTrainingDie);
+    const trainingLabel = getTrainingLabelForDie(trainingDie);
 
     setPendingRoll({
       id: Date.now(),
       periciaName: pericia.name || 'Pericia sem nome',
-      attributeLabel: ATTRIBUTE_LABELS[selectedAttribute],
+      attributeLabel: `${ATTRIBUTE_LABELS[adjustedAttribute.attribute]}${adjustedAttribute.wasSwapped ? ' (Confusão)' : ''}`,
       trainingLabel,
       attributeValue: normalizedAttribute,
       trainingDie,
@@ -578,7 +630,8 @@ export default function CharacterSheet() {
     if (!weapon.attribute || !weapon.skill) return;
 
     const attributeKey = weapon.attribute as AttributeKey;
-    const normalizedAttribute = getEffectiveAttributeValue(attributeKey);
+    const adjustedAttribute = getConfusionAdjustedAttribute(attributeKey);
+    const normalizedAttribute = getEffectiveAttributeValue(adjustedAttribute.attribute);
     
     // Find the training die for the weapon skill
     const skillTrainingDie = SKILL_DICE[weapon.skill as keyof typeof SKILL_DICE] || 6;
@@ -586,7 +639,7 @@ export default function CharacterSheet() {
     setPendingRoll({
       id: Date.now(),
       periciaName: weapon.name || 'Arma sem nome',
-      attributeLabel: ATTRIBUTE_LABELS[weapon.attribute as keyof typeof ATTRIBUTE_LABELS] || weapon.attribute,
+      attributeLabel: `${ATTRIBUTE_LABELS[adjustedAttribute.attribute] || weapon.attribute}${adjustedAttribute.wasSwapped ? ' (Confusão)' : ''}`,
       trainingLabel: `${weapon.skill} (1d${skillTrainingDie})`,
       attributeValue: normalizedAttribute,
       trainingDie: skillTrainingDie,
@@ -959,9 +1012,11 @@ export default function CharacterSheet() {
     const difficulty = 7 + costValue;
 
     const attributeKey = (ritualResolveState.selectedAttribute ?? 'força') as AttributeKey;
-    const attributeValue = getEffectiveAttributeValue(attributeKey);
+    const adjustedAttribute = getConfusionAdjustedAttribute(attributeKey);
+    const attributeValue = getEffectiveAttributeValue(adjustedAttribute.attribute);
     const pericia = character.pericias.find((p) => p.id === ritualResolveState.selectedPericiaId) ?? character.pericias[0];
-    const trainingDie = TRAINING_DIE_MAP[pericia?.training ?? 'treinado'];
+    const baseTrainingDie = pericia?.isGeneric ? 4 : TRAINING_DIE_MAP[pericia?.training ?? 'treinado'];
+    const trainingDie = getDespairAdjustedTrainingDie(baseTrainingDie);
 
     setRitualResolveState((prev) => (prev ? { ...prev, isRolling: true, difficulty } : prev));
 
@@ -1308,7 +1363,7 @@ export default function CharacterSheet() {
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-1">
-                    {(['2', '3', '4', '5', '6', '7', '8', '10'] as const).map((result) => {
+                    {(['2', '3', '4', '5', '6', '7', '8', '10', '11', '13'] as const).map((result) => {
                       const isActive = activeFearTags.some(
                         (tag) =>
                           tag.sourceInsanityId === 'debug-fear' &&
