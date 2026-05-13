@@ -433,6 +433,33 @@ export default function CharacterSheet() {
     return hasDespair ? getReducedTrainingDie(trainingDie) : trainingDie;
   };
 
+  const isFear8Active = activeFearTags.some((tag) => tag.effectResult === '8');
+
+  const isFearAffectedAttribute = (attribute: AttributeKey): boolean => {
+    return activeFearTags.some((tag) => {
+      switch (tag.effectResult) {
+        case '2':
+          return tag.selectedAttribute === attribute;
+        case '3':
+          return attribute === 'força' || attribute === 'agilidade' || attribute === 'inteligência' || attribute === 'presença';
+        case '4':
+          return attribute === 'agilidade';
+        case '5':
+          return attribute === 'força';
+        case '6':
+          return attribute === 'inteligência';
+        case '7':
+          return attribute === 'presença';
+        case '13':
+          return attribute !== 'vigor';
+        case '14':
+          return attribute === 'vigor';
+        default:
+          return false;
+      }
+    });
+  };
+
   const closeFearRoulette = () => {
     setFearRouletteState(createInitialFearRouletteState());
     setFearResultAttributeChoice(null);
@@ -1399,6 +1426,8 @@ export default function CharacterSheet() {
                 protection={character.evasion.protection}
                 defensiveCharges={character.evasion.defensiveCharges}
                 maxDefensiveCharges={character.evasion.maxDefensiveCharges}
+                evasionPenalty={isFear8Active ? 3 : 0}
+                isFearLimited={isFear8Active}
                 onProtectionChange={handleEvasionProtectionChange}
                 onDefensiveChargesChange={handleDefensiveChargesChange}
                 onMaxDefensiveChargesChange={handleMaxDefensiveChargesChange}
@@ -1420,6 +1449,7 @@ export default function CharacterSheet() {
                 attribute={attr}
                 value={character.attributes[attr]}
                 onChange={(val) => handleAttributeChange(attr, val)}
+                isFearAffected={isFearAffectedAttribute(attr)}
               />
             ))}
           </div>
@@ -1435,6 +1465,7 @@ export default function CharacterSheet() {
               onUpdatePericia={handleUpdatePericia}
               onDeletePericia={handleDeletePericia}
               onRollPericia={handleRollPericia}
+              isTrainingAffected={activeFearTags.some((tag) => tag.effectResult === '11')}
             />
           </div>
 

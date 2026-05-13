@@ -9,6 +9,8 @@ interface EvasionPanelProps {
   protection: EvasionProtection;
   defensiveCharges: number;
   maxDefensiveCharges: number;
+  evasionPenalty?: number;
+  isFearLimited?: boolean;
   onProtectionChange: (value: EvasionProtection) => void;
   onDefensiveChargesChange: (value: number) => void;
   onMaxDefensiveChargesChange: (value: number) => void;
@@ -31,6 +33,8 @@ export default function EvasionPanel({
   protection,
   defensiveCharges,
   maxDefensiveCharges,
+  evasionPenalty = 0,
+  isFearLimited = false,
   onProtectionChange,
   onDefensiveChargesChange,
   onMaxDefensiveChargesChange,
@@ -39,7 +43,7 @@ export default function EvasionPanel({
 
   const baseEvasion = 7 + agility;
   const protectionBonus = PROTECTION_OPTIONS.find((option) => option.value === protection)?.bonus ?? 0;
-  const totalEvasion = baseEvasion + protectionBonus;
+  const totalEvasion = baseEvasion + protectionBonus - evasionPenalty;
   const protectionLabel = PROTECTION_OPTIONS.find((option) => option.value === protection)?.label ?? 'Sem proteção';
 
   const handleChargeClick = (index: number) => {
@@ -50,11 +54,11 @@ export default function EvasionPanel({
   };
 
   return (
-    <div className="card-occult space-y-2">
+    <div className={`card-occult space-y-2 transition-colors ${isFearLimited ? 'border-amber-500/60 bg-amber-950/10' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-2 text-center">
-          <h3 className="font-display text-sm text-sky-300 uppercase">Evasão</h3>
-          <div className="font-display text-3xl text-sky-300 leading-none">{totalEvasion}</div>
+          <h3 className={`font-display text-sm uppercase ${isFearLimited ? 'text-amber-300' : 'text-sky-300'}`}>Evasão</h3>
+          <div className={`font-display text-3xl leading-none ${isFearLimited ? 'text-amber-300' : 'text-sky-300'}`}>{totalEvasion}</div>
         </div>
 
         <div className="flex flex-col items-end gap-2">
@@ -103,7 +107,7 @@ export default function EvasionPanel({
                 </div>
 
                 <div className="border-t border-primary/20 pt-3">
-                  <div className="font-display text-xs uppercase text-primary mb-2">Cargas defensivas</div>
+                  <div className={`font-display text-xs uppercase mb-2 ${isFearLimited ? 'text-amber-300' : 'text-primary'}`}>Cargas defensivas</div>
                   <div className="grid grid-cols-4 gap-2">
                     {Array.from({ length: MAX_POSSIBLE_CHARGES }).map((_, index) => {
                       const chargeCount = index + 1;
@@ -113,11 +117,16 @@ export default function EvasionPanel({
                         <button
                           key={chargeCount}
                           type="button"
+                          disabled={isFearLimited}
                           onClick={() => onMaxDefensiveChargesChange(chargeCount)}
                           className={`border px-2 py-2 text-xs uppercase transition-all ${
-                            isActive
-                              ? 'border-primary bg-primary text-black'
-                              : 'border-primary/40 bg-black text-primary hover:border-primary hover:bg-primary/10'
+                            isFearLimited
+                              ? isActive
+                                ? 'border-amber-400 bg-amber-400 text-black'
+                                : 'border-amber-500/30 bg-black/70 text-amber-200/60 cursor-not-allowed'
+                              : isActive
+                                ? 'border-primary bg-primary text-black'
+                                : 'border-primary/40 bg-black text-primary hover:border-primary hover:bg-primary/10'
                           }`}
                         >
                           {chargeCount}
@@ -125,6 +134,7 @@ export default function EvasionPanel({
                       );
                     })}
                   </div>
+                  {isFearLimited && <div className="text-[10px] text-amber-200/80 uppercase mt-2">Sem reações ou cargas defensivas</div>}
                 </div>
               </div>
             </PopoverContent>

@@ -126,8 +126,8 @@ export default function DiceRoller({ rollRequest, damageRollRequest }: DiceRolle
     // Limpar timeouts antigos de interferência crítica
     clearCriticalTimeouts();
 
-    if (firstRoll === 1 && secondRoll === 1) {
-      setDisplayMessage('Falha Critica!');
+    if (firstRoll === 1 || secondRoll === 1) {
+      setDisplayMessage('Fracasso!');
       setDisplayFlash('fail');
       setIsCritical(false);
       setPressagioMessage(null);

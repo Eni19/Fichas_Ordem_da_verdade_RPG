@@ -18,6 +18,7 @@ interface PericiasProps {
   onUpdatePericia: (id: string, field: keyof Pericia, value: string) => void;
   onDeletePericia: (id: string) => void;
   onRollPericia: (id: string, attribute: AttributeKey) => void;
+  isTrainingAffected?: boolean;
 }
 
 const ATTRIBUTE_OPTIONS: Array<{ value: AttributeKey; label: string }> = [
@@ -40,6 +41,7 @@ export default function Pericias({
   onUpdatePericia,
   onDeletePericia,
   onRollPericia,
+  isTrainingAffected = false,
 }: PericiasProps) {
   const [pendingRoll, setPendingRoll] = useState<{ periciaId: string; attribute: AttributeKey } | null>(null);
 
@@ -93,17 +95,23 @@ export default function Pericias({
                   <div
                     className={`w-36 border text-sm p-1 focus:outline-none h-8 transition-colors duration-200 ${
                       isRollMenuActive
-                        ? 'bg-primary border-black text-black'
-                        : 'bg-input border-primary text-primary group-hover:bg-primary group-hover:border-black group-hover:text-black'
+                        ? isTrainingAffected
+                          ? 'bg-amber-500 border-black text-black'
+                          : 'bg-primary border-black text-black'
+                        : isTrainingAffected
+                          ? 'bg-amber-950/40 border-amber-500 text-amber-200 group-hover:bg-amber-900/50 group-hover:border-amber-400 group-hover:text-amber-100'
+                          : 'bg-input border-primary text-primary group-hover:bg-primary group-hover:border-black group-hover:text-black'
                     }`}
                   >
                     {isGeneric ? (
-                      <span className="h-full flex items-center text-xs">Sem treino (1d4)</span>
+                      <span className={`h-full flex items-center text-xs ${isTrainingAffected ? 'text-amber-200' : ''}`}>
+                        Sem treino (1d4)
+                      </span>
                     ) : (
                       <select
                         value={pericia.training}
                         onChange={(e) => onUpdatePericia(pericia.id, 'training', e.target.value)}
-                        className="w-full bg-transparent h-full"
+                        className={`w-full bg-transparent h-full ${isTrainingAffected ? 'text-amber-100' : ''}`}
                       >
                         {TRAINING_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value} className="bg-black text-primary">
