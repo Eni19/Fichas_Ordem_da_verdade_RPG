@@ -391,6 +391,8 @@ export default function CharacterSheet() {
           return attribute === 'inteligência' ? sum - 1 : sum;
         case '7':
           return attribute === 'presença' ? sum - 1 : sum;
+        case '14':
+          return attribute === 'vigor' ? sum - 2 : sum;
         default:
           return sum;
       }
@@ -470,7 +472,7 @@ export default function CharacterSheet() {
     setFearTagPendingRemoval((prev) => (prev?.id === id ? null : prev));
   };
 
-  const toggleFearDebugCondition = (result: '2' | '3' | '4' | '5' | '6' | '7' | '8' | '10' | '11' | '13') => {
+  const toggleFearDebugCondition = (result: '2' | '3' | '4' | '5' | '6' | '7' | '8' | '10' | '11' | '13' | '14') => {
     const existing = activeFearTags.find(
       (tag) =>
         tag.sourceInsanityId === 'debug-fear' &&
@@ -1363,7 +1365,7 @@ export default function CharacterSheet() {
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-1">
-                    {(['2', '3', '4', '5', '6', '7', '8', '10', '11', '13'] as const).map((result) => {
+                    {(['2', '3', '4', '5', '6', '7', '8', '10', '11', '13', '14'] as const).map((result) => {
                       const isActive = activeFearTags.some(
                         (tag) =>
                           tag.sourceInsanityId === 'debug-fear' &&
