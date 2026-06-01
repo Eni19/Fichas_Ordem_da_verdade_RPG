@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useEffect, useRef, useState } from 'react';
+=======
+import { useCallback, useEffect, useRef, useState } from 'react';
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
 import AttributeHexagon from '@/components/AttributeHexagon';
 import SkillsList from '@/components/SkillsList';
 import DiceRoller from '@/components/DiceRoller';
@@ -10,6 +14,10 @@ import InventoryPanel from '@/components/InventoryPanel';
 import InsanityPanel from '@/components/InsanityPanel';
 import RitualsPanel from '@/components/RitualsPanel';
 import SaveLoad from '@/components/SaveLoad';
+<<<<<<< HEAD
+=======
+import CharacterManager from '@/components/CharacterManager';
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
 import symbols, { type RitualSymbol } from '@/data/symbols';
 import fearEffects, { type FearEffect } from '@/data/fear';
 
@@ -307,6 +315,20 @@ export default function CharacterSheet() {
   const [debugResultTwoAttribute, setDebugResultTwoAttribute] = useState<AttributeKey>('força');
   const fearRouletteIntervalRef = useRef<number | null>(null);
   const fearRouletteTimeoutRef = useRef<number | null>(null);
+<<<<<<< HEAD
+=======
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [characterId, setCharacterId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('odv_current_character_id');
+    } catch {
+      return null;
+    }
+  });
+  const [isCloudSaving, setIsCloudSaving] = useState(false);
+  const [lastCloudSave, setLastCloudSave] = useState<string | null>(null);
+  const [isManagerOpen, setIsManagerOpen] = useState(false);
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
   const [character, setCharacter] = useState<CharacterData>({
     name: 'Seu Personagem',
     attributes: {
@@ -362,9 +384,144 @@ export default function CharacterSheet() {
       if (fearRouletteTimeoutRef.current) {
         clearTimeout(fearRouletteTimeoutRef.current);
       }
+<<<<<<< HEAD
     };
   }, []);
 
+=======
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Auto-save to cloud with debounce (2s after last change) when characterId exists
+  useEffect(() => {
+    if (!characterId) return;
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const dataToSave = extractCharacterData();
+        const res = await fetch(`/api/characters/${characterId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: character.name,
+            data: dataToSave,
+          }),
+        });
+        if (res.ok) {
+          setLastCloudSave(new Date().toISOString());
+        }
+      } catch {
+        // Silently fail on auto-save — user can manually save
+      }
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [character, characterId]);
+
+  const extractCharacterData = useCallback(() => ({
+    name: character.name,
+    attributes: character.attributes,
+    skills: character.skills,
+    pericias: character.pericias,
+    hp: character.hp,
+    sanity: character.sanity,
+    hope: character.hope,
+    evasion: character.evasion,
+    inventory: character.inventory,
+    weapons: character.weapons,
+    insanities: character.insanities,
+    paranormalPowers: character.paranormalPowers,
+    rituals: character.rituals,
+    ritualComponents: character.ritualComponents,
+  }), [character]);
+
+  const handleSaveToCloud = async () => {
+    setIsCloudSaving(true);
+    try {
+      const dataToSave = extractCharacterData();
+      if (characterId) {
+        // Update existing
+        const res = await fetch(`/api/characters/${characterId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: character.name, data: dataToSave }),
+        });
+        if (!res.ok) throw new Error('Falha ao atualizar');
+        const updated = await res.json();
+        setLastCloudSave(updated.updated_at);
+      } else {
+        // Create new
+        const res = await fetch('/api/characters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: character.name, data: dataToSave }),
+        });
+        if (!res.ok) throw new Error('Falha ao criar');
+        const created = await res.json();
+        setCharacterId(created.id);
+        setLastCloudSave(created.updated_at);
+        try {
+          localStorage.setItem('odv_current_character_id', created.id);
+        } catch { /* ignore */ }
+      }
+    } catch (err) {
+      alert('Erro ao salvar na nuvem. Verifique se o servidor está rodando.');
+      console.error(err);
+    } finally {
+      setIsCloudSaving(false);
+    }
+  };
+
+  const handleOpenFromCloud = (id: string, data: any) => {
+    handleLoadCharacter(data, id);
+  };
+
+  const handleCreateNew = () => {
+    setCharacterId(null);
+    setLastCloudSave(null);
+    try {
+      localStorage.removeItem('odv_current_character_id');
+    } catch { /* ignore */ }
+    setCharacter({
+      name: 'Novo Personagem',
+      attributes: { força: 0, agilidade: 0, inteligência: 0, presença: 0, vigor: 0 },
+      skills: [],
+      pericias: [
+        { id: GENERIC_PERICIA_ID, name: GENERIC_PERICIA_NAME, training: 'treinado', isGeneric: true },
+        { id: '1', name: 'Luta', training: 'treinado' },
+        { id: '2', name: 'Pontaria', training: 'veterano' },
+      ],
+      hp: { current: 20, max: 20 },
+      sanity: { current: 10, max: 10 },
+      hope: 3,
+      evasion: { protection: 'none', defensiveCharges: 3, maxDefensiveCharges: 2 },
+      inventory: [],
+      weapons: [
+        {
+          id: '1', name: 'Arma 1', category: '', damageDiceCount: 1, damageDiceSides: 6,
+          criticalThreshold: 18, criticalMultiplier: 2, skill: '', attribute: '',
+          hasExtraEffect: false, extraEffect: '', isActive: true, tags: [],
+        },
+      ],
+      insanities: [],
+      paranormalPowers: [],
+      rituals: [],
+      ritualComponents: [],
+    });
+  };
+
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
   const resolveFearEffect = (total: number): FearEffect => {
     if (total >= 20) {
       return fearEffects.find((effect) => effect.resultado === '20+') ?? fearEffects[fearEffects.length - 1];
@@ -1207,6 +1364,7 @@ export default function CharacterSheet() {
         }
       >;
       rituals?: LoadedRitual[];
+<<<<<<< HEAD
     }
   ) => {
     const normalizeWeapon = (weapon: Partial<Weapon> | undefined, fallback: Weapon): Weapon => {
@@ -1228,6 +1386,11 @@ export default function CharacterSheet() {
       };
     };
 
+=======
+    },
+    cloudId?: string | null
+  ) => {
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
     const loadedSkills: Skill[] = Array.isArray(data.skills)
       ? data.skills.map((skill) => ({
           id: skill.id,
@@ -1300,7 +1463,26 @@ export default function CharacterSheet() {
 
     setCharacter((prev) => ({
       ...prev,
+<<<<<<< HEAD
       ...data,
+=======
+      // Only spread known-safe scalar/object fields from loaded data
+      // Arrays are handled explicitly below to avoid undefined overwrites
+      name: typeof data.name === 'string' ? data.name : prev.name,
+      hp: data.hp ? {
+        current: Number(data.hp.current ?? prev.hp.current),
+        max: Number(data.hp.max ?? prev.hp.max),
+      } : prev.hp,
+      sanity: data.sanity ? {
+        current: Number(data.sanity.current ?? prev.sanity.current),
+        max: Number(data.sanity.max ?? prev.sanity.max),
+      } : prev.sanity,
+      hope: typeof data.hope === 'number' ? data.hope : prev.hope,
+      inventory: Array.isArray(data.inventory) ? data.inventory : prev.inventory,
+      weapons: Array.isArray(data.weapons) ? data.weapons : prev.weapons,
+      insanities: Array.isArray(data.insanities) ? data.insanities : prev.insanities,
+      paranormalPowers: Array.isArray(data.paranormalPowers) ? data.paranormalPowers : prev.paranormalPowers,
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
       attributes: {
         força: Number(data.attributes?.força ?? prev.attributes.força ?? 0),
         agilidade: Number(data.attributes?.agilidade ?? prev.attributes.agilidade ?? 0),
@@ -1324,9 +1506,22 @@ export default function CharacterSheet() {
           Math.min(4, Number(data.evasion?.maxDefensiveCharges ?? prev.evasion.maxDefensiveCharges))
         ),
       },
+<<<<<<< HEAD
       primaryWeapon: normalizeWeapon(data.primaryWeapon, prev.primaryWeapon),
       secondaryWeapon: normalizeWeapon(data.secondaryWeapon, prev.secondaryWeapon),
     }));
+=======
+    }));
+
+    // Update cloud tracking
+    if (cloudId) {
+      setCharacterId(cloudId);
+      setLastCloudSave(new Date().toISOString());
+      try {
+        localStorage.setItem('odv_current_character_id', cloudId);
+      } catch { /* ignore */ }
+    }
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
   };
 
   return (
@@ -1346,6 +1541,14 @@ export default function CharacterSheet() {
         <SaveLoad
           characterData={character}
           onLoadCharacter={handleLoadCharacter}
+<<<<<<< HEAD
+=======
+          characterId={characterId}
+          onSaveToCloud={handleSaveToCloud}
+          onOpenManager={() => setIsManagerOpen(true)}
+          isCloudSaving={isCloudSaving}
+          lastCloudSave={lastCloudSave}
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
         />
 
         {/* Vitals + Hope + Evasion Row - Stack on mobile */}
@@ -1635,6 +1838,18 @@ export default function CharacterSheet() {
         </div>
       )}
 
+<<<<<<< HEAD
+=======
+      {/* Character Manager Modal */}
+      <CharacterManager
+        isOpen={isManagerOpen}
+        onClose={() => setIsManagerOpen(false)}
+        onOpenCharacter={handleOpenFromCloud}
+        onCreateNew={handleCreateNew}
+        currentCharacterId={characterId}
+      />
+
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
       {/* Inventory Panel - Retractable Sidebar */}
       <InventoryPanel
         isOpen={openSidebar === 'inventory'}

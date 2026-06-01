@@ -26,6 +26,15 @@ export default defineConfig({
     port: 3000,
     strictPort: false, // Will find next available port if 3000 is busy
     host: true,
+<<<<<<< HEAD
+=======
+    proxy: {
+      "/api": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+      },
+    },
+>>>>>>> a1c2bf36fabd31d5c0e4ce9b3a5d40464e60c0d9
     allowedHosts: [
       ".manuspre.computer",
       ".manus.computer",
